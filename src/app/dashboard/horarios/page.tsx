@@ -2,6 +2,8 @@ import { ClipboardList, Plus } from "lucide-react";
 import { HorariosContent } from "./HorariosContent";
 import { getHorariosByDia, getMaterias, getSecciones, getUsuarios } from "@/lib/actions";
 
+export const dynamic = "force-dynamic";
+
 export default async function GestionHorariosPage({ searchParams }: { searchParams: { day?: string } }) {
     const { day } = await searchParams;
     const currentDay = (day || "LUNES") as any;

@@ -12,6 +12,8 @@ import { getDashboardData } from "@/lib/actions";
 import { getSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
     const [session, data] = await Promise.all([
         getSession(),

@@ -4,6 +4,8 @@ import { getMisInasistencias } from "@/lib/actions";
 import { UserX, Calendar, MessageSquare, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function MisInasistenciasPage() {
     const session = await getSession();
     if (!session || session.user.rol !== "DOCENTE") {

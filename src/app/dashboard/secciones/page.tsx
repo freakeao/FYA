@@ -2,6 +2,8 @@ import { LayoutGrid, Plus } from "lucide-react";
 import { SeccionesContent } from "./SeccionesContent";
 import { getSecciones, getUsuarios } from "@/lib/actions";
 
+export const dynamic = "force-dynamic";
+
 export default async function GestionSeccionesPage() {
     const [secciones, usuarios] = await Promise.all([
         getSecciones(),

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { ReportesContent } from "./ReportesContent";
 import { ClipboardCheck } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function ReportesPage() {
     const session = await getSession();
     if (!session) {

@@ -2,6 +2,8 @@ import { Library, Plus } from "lucide-react";
 import { MateriasContent } from "./MateriasContent";
 import { getMaterias } from "@/lib/actions";
 
+export const dynamic = "force-dynamic";
+
 export default async function GestionMateriasPage() {
     const materias = await getMaterias();
 
