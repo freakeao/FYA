@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Plus,
     Users,
@@ -24,6 +24,9 @@ interface SeccionesContentProps {
 }
 
 export function SeccionesContent({ initialSecciones, docentes }: SeccionesContentProps) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+
     const [search, setSearch] = useState("");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [idToDelete, setIdToDelete] = useState<string | null>(null);
@@ -48,6 +51,8 @@ export function SeccionesContent({ initialSecciones, docentes }: SeccionesConten
         s.nombre.toLowerCase().includes(search.toLowerCase()) ||
         (s.docenteGuia && s.docenteGuia.toLowerCase().includes(search.toLowerCase()))
     );
+
+    if (!mounted) return null;
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 // --- SECCIONES ---
+// --- SECCIONES ---
 export async function getSecciones() {
     const result = await db.select({
         id: secciones.id,
@@ -20,7 +21,8 @@ export async function getSecciones() {
         materiasCount: sql<number>`(SELECT count(DISTINCT ${horarios.materiaId}) FROM ${horarios} WHERE ${horarios.seccionId} = ${secciones.id})`.mapWith(Number),
     })
         .from(secciones)
-        .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id));
+        .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id))
+        .orderBy(secciones.nombre);
 
     return result;
 }
@@ -212,7 +214,7 @@ export async function logoutUser() {
 
 export async function getUsuarios() {
     return await db.query.usuarios.findMany({
-        orderBy: (usuarios, { asc }) => [asc(usuarios.nombre)],
+        orderBy: (u: any, { asc }: any) => [asc(u.nombre)],
     });
 }
 
