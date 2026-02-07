@@ -781,3 +781,45 @@ export async function bulkCreateUsuarios(data: { nombre: string; usuario?: strin
         return { success: false, error: "Error al importar personal." };
     }
 }
+
+export async function getClassesToday() {
+    const session = await getSession();
+    if (!session || !session.user) return [];
+
+    const now = new Date();
+    const options = { timeZone: "America/Caracas" };
+    const venezuelaDateStr = now.toLocaleString("en-US", options);
+    const venezuelaDate = new Date(venezuelaDateStr);
+    const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
+    const today = new Date().toISOString().split('T')[0];
+
+    try {
+        const misClases = await db
+            .select({
+                id: horarios.id,
+                seccion: secciones.nombre,
+                seccionId: horarios.seccionId,
+                grado: secciones.grado,
+                materia: materias.nombre,
+                horaInicio: horarios.horaInicio,
+                horaFin: horarios.horaFin,
+                timeString: sql<string>`${horarios.horaInicio} || ' - ' || ${horarios.horaFin}`,
+                estado: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM ${registrosAsistencia} WHERE ${registrosAsistencia.horarioId} = ${horarios.id} AND ${registrosAsistencia.fecha} = ${today}) THEN 'Completado' ELSE 'Pendiente' END`
+            })
+            .from(horarios)
+            .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
+            .innerJoin(materias, eq(horarios.materiaId, materias.id))
+            .where(
+                and(
+                    eq(horarios.docenteId, session.user.id),
+                    eq(horarios.diaSemana, hoyDia as any)
+                )
+            )
+            .orderBy(horarios.horaInicio);
+
+        return misClases;
+    } catch (error) {
+        console.error("Error fetching classes today:", error);
+        return [];
+    }
+}

@@ -13,8 +13,9 @@ import { StudentList } from "@/components/diario/StudentList";
 import { NumberInput } from "@/components/common/NumberInput";
 
 import { toast } from "sonner";
-import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia } from "@/lib/actions";
+import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia, getClassesToday } from "@/lib/actions";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 interface ClaseActual {
     id: string;
@@ -46,6 +47,7 @@ export default function AsistenciaPage() {
     const [claseActual, setClaseActual] = useState<ClaseActual | null>(null);
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [loading, setLoading] = useState(false);
+    const [allClassesToday, setAllClassesToday] = useState<any[]>([]);
 
     // Form States
     const [tema, setTema] = useState("");
@@ -54,20 +56,37 @@ export default function AsistenciaPage() {
 
     useEffect(() => {
         setMounted(true);
-        getCurrentClass().then((clase) => {
-            setClaseActual(clase);
-            if (clase?.seccionId) {
-                getEstudiantesBySeccion(clase.seccionId).then((data) => {
-                    setEstudiantes(data);
-                    // Initialize counts based on loaded students
-                    const hembras = data.filter((e: any) => e.genero === "HEMBRA").length;
-                    const varones = data.filter((e: any) => e.genero === "VARON").length;
-                    setH(hembras);
-                    setV(varones);
-                });
-            }
-        });
+        refreshClassData();
     }, []);
+
+    async function refreshClassData() {
+        const [clase, allToday] = await Promise.all([
+            getCurrentClass(),
+            getClassesToday()
+        ]);
+
+        setAllClassesToday(allToday);
+        if (clase) {
+            handleClassSelected(clase);
+        } else if (allToday.length > 0) {
+            // Default to the first one if none currently active? 
+            // Better to let user pick.
+        }
+    }
+
+    const handleClassSelected = (clase: any) => {
+        setClaseActual(clase);
+        setInasistentes([]); // Reset inasistencias when class changes
+        if (clase?.seccionId) {
+            getEstudiantesBySeccion(clase.seccionId).then((data) => {
+                setEstudiantes(data);
+                const hembras = data.filter((e: any) => e.genero === "HEMBRA").length;
+                const varones = data.filter((e: any) => e.genero === "VARON").length;
+                setH(hembras);
+                setV(varones);
+            });
+        }
+    };
 
     // Derived state (memoized)
     const stats = useMemo(() => {
@@ -150,24 +169,53 @@ export default function AsistenciaPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                    {allClassesToday.length > 0 && (
+                        <div className="relative group w-full md:w-64">
+                            <select
+                                onChange={(e) => {
+                                    const selected = allClassesToday.find(c => c.id === e.target.value);
+                                    if (selected) handleClassSelected(selected);
+                                }}
+                                value={claseActual?.id || ""}
+                                className="w-full h-12 bg-white/70 backdrop-blur-xl border border-border/40 rounded-2xl px-4 text-xs font-bold uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+                            >
+                                <option value="" disabled>Seleccionar clase...</option>
+                                {allClassesToday.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.grado} "{c.seccion}" - {c.materia}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                                <ChevronRight className="w-4 h-4 rotate-90" />
+                            </div>
+                        </div>
+                    )}
+
                     <Link
-                        href={claseActual ? `/dashboard/secciones/${claseActual.seccionId}/estudiantes` : "#"}
-                        className="px-4 py-2 bg-accent/50 hover:bg-accent border border-border/40 rounded-2xl text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all"
+                        href={claseActual?.seccionId ? `/dashboard/secciones/${claseActual.seccionId}/estudiantes` : "/dashboard/secciones"}
+                        className="px-4 py-2 bg-accent/50 hover:bg-accent border border-border/40 rounded-2xl text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all w-full md:w-auto justify-center h-12"
                     >
                         <Users className="w-4 h-4" />
                         Gestionar Alumnos
                     </Link>
-                    <div className="px-4 py-3 bg-card border border-border/40 rounded-3xl shadow-sm flex items-center justify-between gap-4 w-full md:w-auto">
+
+                    <div className="px-4 py-2 bg-card border border-border/40 rounded-3xl shadow-sm flex items-center justify-between gap-4 w-full md:w-auto h-12">
                         <div className="text-right border-r border-border/40 pr-4 flex-1 md:flex-none">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Fecha Hoy</p>
-                            <p className="text-xs md:text-sm font-bold">
+                            <p className="text-[8px] font-bold text-muted-foreground uppercase leading-tight">Fecha Hoy</p>
+                            <p className="text-[11px] font-black uppercase">
                                 {new Date().toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
                             </p>
                         </div>
                         <div className="text-center">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Estado</p>
-                            <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-500/10 text-amber-600 rounded-full uppercase">Pendiente</span>
+                            <p className="text-[8px] font-bold text-muted-foreground uppercase leading-tight">Estado</p>
+                            <span className={cn(
+                                "text-[9px] font-black px-2 py-0.5 rounded-full uppercase",
+                                (claseActual as any)?.estado === 'Completado' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                            )}>
+                                {(claseActual as any)?.estado || 'Pendiente'}
+                            </span>
                         </div>
                     </div>
                 </div>
