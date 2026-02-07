@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useState, useEffect, useMemo } from "react";
 import {
     ClipboardCheck,
@@ -18,24 +16,35 @@ import { toast } from "sonner";
 import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 
+interface ClaseActual {
+    id: string;
+    seccion: string;
+    seccionId: string;
+    grado: string;
+    materia: string;
+    horaInicio: string;
+    horaFin: string;
+    timeString: string;
+}
+
+interface Estudiante {
+    id: string;
+    seccionId: string;
+    nombre: string;
+    numeroLista: number;
+    genero: "HEMBRA" | "VARON";
+    cedula: string | null;
+}
+
 export default function AsistenciaPage() {
     const router = useRouter();
-    // Manual overrides for counts (optional, but keep state if user wants to override)
-    // However, best practice is to derive from students. 
-    // If we want manual override, we keep state. If we want purely derived, we remove state.
-    // The previous code had h/v states that were updated by effect.
-    // To fix "Derived State via Effect", we should calculate these ON THE FLY if we trust the student list,
-    // OR initialize them once.
-    // Given the UI allows editing them (NumberInput), they are effectively "initial state derived from props" but manageable.
-    // Better pattern: updating students updates these, but they are editable.
-    // For now, let's keep them editable but update them when students load (using useEffect only on load is acceptable, or better, in the data fetch callback).
+    const [mounted, setMounted] = useState(false);
 
     const [h, setH] = useState(0);
     const [v, setV] = useState(0);
-    const t = h + v;
 
-    const [claseActual, setClaseActual] = useState<any>(null);
-    const [estudiantes, setEstudiantes] = useState<any[]>([]);
+    const [claseActual, setClaseActual] = useState<ClaseActual | null>(null);
+    const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Form States
@@ -44,6 +53,7 @@ export default function AsistenciaPage() {
     const [inasistentes, setInasistentes] = useState<string[]>([]);
 
     useEffect(() => {
+        setMounted(true);
         getCurrentClass().then((clase) => {
             setClaseActual(clase);
             if (clase?.seccionId) {
@@ -58,15 +68,6 @@ export default function AsistenciaPage() {
             }
         });
     }, []);
-
-    // Optimized: Recalculate counts when inasistentes changes, BUT we want to allow manual edits?
-    // The previous logic was:
-    // useEffect(() => { ... setH(hembrasPresentes) ... }, [estudiantes, inasistentes])
-    // This effectively overwrote manual changes if they were allowed.
-    // If we want to strictly follow "Derived State", we should NOT have state for h/v if they are purely calculated.
-    // But the UI has NumberInputs... leading to ambiguity.
-    // Assumption: The system should auto-calculate based on attendance. Manual override is weird if we have a student list.
-    // I will implement stricter derived state for better integrity.
 
     // Derived state (memoized)
     const stats = useMemo(() => {
@@ -116,10 +117,7 @@ export default function AsistenciaPage() {
         }
     };
 
-    // If we want to allow manual overrides, we'd need a different approach. 
-    // BUT for data integrity, if we have a list of students, the counts MUST match the list.
-    // So I will make the inputs read-only or just displays, OR keep them as NumberInput but controlled by derived state (effectively read-only unless we decouple).
-    // I'll keep them as displays of the derived values to ensure consistency.
+    if (!mounted) return null;
 
     return (
         <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -142,7 +140,7 @@ export default function AsistenciaPage() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground px-2">
                         {claseActual ? (
                             <>
-                                <span className="bg-primary/5 text-primary px-2 py-0.5 rounded-md font-medium">{claseActual.grado} "{claseActual.seccion}"</span>
+                                <span className="bg-primary/5 text-primary px-2 py-0.5 rounded-md font-medium">{claseActual.grado} &quot;{claseActual.seccion}&quot;</span>
                                 <ChevronRight className="w-3 h-3 opacity-50" />
                                 <span className="font-medium text-foreground">{claseActual.materia} ({claseActual.timeString})</span>
                             </>
@@ -163,7 +161,9 @@ export default function AsistenciaPage() {
                     <div className="px-6 py-3 bg-card border border-border/40 rounded-3xl shadow-sm flex items-center gap-4">
                         <div className="text-right border-r border-border/40 pr-4">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">Fecha Hoy</p>
-                            <p className="text-sm font-bold">{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                            <p className="text-sm font-bold">
+                                {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </p>
                         </div>
                         <div className="text-center">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">Estado</p>
@@ -233,4 +233,5 @@ export default function AsistenciaPage() {
             </div>
         </div>
     );
+
 }
