@@ -173,7 +173,10 @@ export default async function DashboardPage() {
                     {(userRole === "ADMINISTRADOR" || userRole === "COORDINADOR") && (
                         <Link
                             href="/dashboard/asistencia/personal"
-                            className="w-full mt-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center text-muted-foreground hover:text-primary transition-all border-t border-border/40"
+                            suppressHydrationWarning
+                            className={cn(
+                                "w-full mt-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center text-muted-foreground hover:text-primary transition-all border-t border-border/40"
+                            )}
                         >
                             Pasar Asistencia Personal
                         </Link>
