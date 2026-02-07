@@ -93,7 +93,7 @@ export function MateriasContent({ initialMaterias }: MateriasContentProps) {
 
             {/* List */}
             <div className="grid gap-4">
-                {filteredMaterias.map((m) => (
+                {filteredMaterias.map((m: any) => (
                     <div key={m.id} className="premium-card p-6 rounded-[1.75rem] flex items-center justify-between group hover:border-primary/20 transition-all">
                         <div className="flex items-center gap-6">
                             <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center relative overflow-hidden", m.color || "bg-primary")}>

@@ -109,7 +109,7 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
 
             {/* Grid */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {filteredPersonal.map((person) => (
+                {filteredPersonal.map((person: any) => (
                     <div key={person.id} className="premium-card p-6 rounded-[2rem] flex flex-col gap-4 group hover:border-primary/30 transition-all relative overflow-hidden">
                         {/* Status Indicator Stripe */}
                         <div className={cn(

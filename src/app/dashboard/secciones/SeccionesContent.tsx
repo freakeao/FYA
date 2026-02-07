@@ -65,7 +65,7 @@ export function SeccionesContent({ initialSecciones, docentes }: SeccionesConten
 
             {/* Grid */}
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {filteredSecciones.map((s) => (
+                {filteredSecciones.map((s: any) => (
                     <div key={s.id} className="premium-card p-8 rounded-[2.5rem] space-y-6 group hover:border-primary/30 transition-all">
                         <div className="flex items-start justify-between">
                             <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-500">
