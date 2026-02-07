@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
 import { AsistenciaPersonalContent } from "./AsistenciaPersonalContent";
 
+export const dynamic = "force-dynamic";
+
 export default async function AsistenciaPersonalPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
     const session = await getSession();
     if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) {
