@@ -288,9 +288,7 @@ export async function updateUsuario(id: string, formData: FormData) {
             }
         } else {
             // Revoke access if unchecked? Or just ignore? 
-            // For now, let's assume if grantAccess is false, we clear credentials?
-            // Actually, usually users might want to keep credentials but disable access.
-            // But based on the request "staff without access", we can clear them.
+            // For now, let's assume if grantAccess is false, we clear credentials.
             updateData.usuario = null;
             updateData.password = null;
         }
@@ -301,6 +299,34 @@ export async function updateUsuario(id: string, formData: FormData) {
         return { success: true, message: "Datos actualizados correctamente" };
     } catch (error) {
         return { success: false, error: "Error al actualizar datos" };
+    }
+}
+
+export async function changeOwnPassword(formData: FormData) {
+    const session = await getSession();
+    if (!session || !session.user) return { success: false, error: "No autorizado" };
+
+    const currentPassword = formData.get("currentPassword") as string;
+    const newPassword = formData.get("newPassword") as string;
+
+    if (!currentPassword || !newPassword) {
+        return { success: false, error: "Todos los campos son obligatorios" };
+    }
+
+    try {
+        const [user] = await db.select().from(usuarios).where(eq(usuarios.id, session.user.id));
+        if (!user || !user.password) return { success: false, error: "Usuario no encontrado" };
+
+        const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!passwordMatch) return { success: false, error: "La contraseña actual es incorrecta" };
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await db.update(usuarios).set({ password: hashedPassword }).where(eq(usuarios.id, session.user.id));
+
+        return { success: true, message: "Contraseña actualizada correctamente" };
+    } catch (error) {
+        console.error("Change password error:", error);
+        return { success: false, error: "Error al cambiar la contraseña" };
     }
 }
 

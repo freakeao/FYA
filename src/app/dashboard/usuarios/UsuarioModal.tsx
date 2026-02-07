@@ -22,7 +22,8 @@ export function UsuarioModal({
         nombre: "",
         usuario: "",
         password: "",
-        rol: "DOCENTE" as "ADMINISTRADOR" | "COORDINADOR" | "DOCENTE"
+        rol: "DOCENTE" as "ADMINISTRADOR" | "COORDINADOR" | "DOCENTE",
+        cedula: ""
     });
 
     useEffect(() => {
@@ -31,14 +32,16 @@ export function UsuarioModal({
                 nombre: editingUsuario.nombre || "",
                 usuario: editingUsuario.usuario || "",
                 password: "", // Password is optional on edit
-                rol: editingUsuario.rol || "DOCENTE"
+                rol: editingUsuario.rol || "DOCENTE",
+                cedula: editingUsuario.cedula || ""
             });
         } else {
             setFormData({
                 nombre: "",
                 usuario: "",
                 password: "",
-                rol: "DOCENTE"
+                rol: "DOCENTE",
+                cedula: ""
             });
         }
     }, [editingUsuario, isOpen]);
@@ -52,6 +55,8 @@ export function UsuarioModal({
         data.append("usuario", formData.usuario);
         data.append("password", formData.password);
         data.append("rol", formData.rol);
+        data.append("cedula", formData.cedula);
+        data.append("grantAccess", "true"); // Usuarios in this modal always have access
 
         const res = editingUsuario
             ? await updateUsuario(editingUsuario.id, data)
@@ -91,6 +96,26 @@ export function UsuarioModal({
                                 placeholder="Ej: Juan Pérez"
                                 value={formData.nombre}
                                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                                className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Cédula */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                            Cédula de Identidad
+                        </label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors">
+                                <User className="w-full h-full" />
+                            </div>
+                            <input
+                                required
+                                type="text"
+                                placeholder="Ej: V-12345678"
+                                value={formData.cedula}
+                                onChange={(e) => setFormData({ ...formData, cedula: e.target.value })}
                                 className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
                             />
                         </div>
