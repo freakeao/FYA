@@ -12,14 +12,18 @@ import { getDashboardData } from "@/lib/actions";
 import { getSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
+const Icon = GraduationCap;
+
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-    const [session, data] = await Promise.all([
-        getSession(),
-        getDashboardData()
-    ]);
-    const userRole = session?.user?.rol;
+    const session = await getSession();
+
+    // Redirect handled by middleware, but safety first for SSR
+    if (!session) return null;
+
+    const data = await getDashboardData();
+    const userRole = session.user?.rol;
 
     return (
         <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 relative overflow-hidden">
@@ -179,8 +183,6 @@ export default async function DashboardPage() {
         </div >
     );
 }
-
-const Icon = GraduationCap;
 
 function StatsCard({ title, value, description, icon: Icon, trend, trendNegative, color = "primary" }: any) {
     const isPrimary = color === "primary";

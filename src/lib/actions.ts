@@ -540,81 +540,96 @@ export async function getDashboardData() {
 
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Estadísticas Generales
-    const [totalEstudiantes] = await db.select({ count: sql<number>`count(*)` }).from(estudiantes);
-    const [totalDocentes] = await db.select({ count: sql<number>`count(*)` }).from(usuarios).where(eq(usuarios.rol, "DOCENTE"));
+    try {
+        // 1. Estadísticas Generales
+        const totalEstudiantesRes = await db.select({ count: sql<number>`count(*)` }).from(estudiantes).catch(() => [{ count: 0 }]);
+        const totalDocentesRes = await db.select({ count: sql<number>`count(*)` }).from(usuarios).where(eq(usuarios.rol, "DOCENTE")).catch(() => [{ count: 0 }]);
 
-    // Inasistencias de alumnos hoy
-    const [inasistenciasAlumnosHoy] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(inasistenciasAlumnos)
-        .innerJoin(registrosAsistencia, eq(inasistenciasAlumnos.registroId, registrosAsistencia.id))
-        .where(eq(registrosAsistencia.fecha, today));
+        const totalEstudiantesCount = totalEstudiantesRes[0]?.count ?? 0;
+        const totalDocentesCount = totalDocentesRes[0]?.count ?? 0;
 
-    // Docentes ausentes hoy
-    const docentesAusentesHoy = await db
-        .select({
-            nombre: usuarios.nombre,
-            id: usuarios.id
-        })
-        .from(asistenciaDocentes)
-        .innerJoin(usuarios, eq(asistenciaDocentes.docenteId, usuarios.id))
-        .where(
-            and(
-                eq(asistenciaDocentes.fecha, today),
-                eq(asistenciaDocentes.presente, false)
-            )
-        );
+        // Inasistencias de alumnos hoy
+        const inasistenciasAlumnosHoyRes = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(inasistenciasAlumnos)
+            .innerJoin(registrosAsistencia, eq(inasistenciasAlumnos.registroId, registrosAsistencia.id))
+            .where(eq(registrosAsistencia.fecha, today))
+            .catch(() => [{ count: 0 }]);
 
-    // Mis clases de hoy (si es docente)
-    const diaSemanaMap: Record<number, string> = {
-        0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
-    };
+        const inasistenciasAlumnosCount = inasistenciasAlumnosHoyRes[0]?.count ?? 0;
 
-    // Configurar fecha en zona horaria de Venezuela
-    const now = new Date();
-    const options = { timeZone: "America/Caracas" };
-    const venezuelaDateStr = now.toLocaleString("en-US", options);
-    const venezuelaDate = new Date(venezuelaDateStr);
-
-    const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
-
-    let misClases: any[] = [];
-    if (session.user.rol === "DOCENTE" || session.user.rol === "ADMINISTRATIVO" || session.user.rol === "OBRERO" || session.user.rol === "COORDINADOR") {
-        misClases = await db
+        // Docentes ausentes hoy
+        const docentesAusentesHoy = await db
             .select({
-                id: horarios.id,
-                seccion: secciones.nombre,
-                materia: materias.nombre,
-                descripcion: horarios.descripcion,
-                hora: sql<string>`${horarios.horaInicio} || ' - ' || ${horarios.horaFin}`,
-                estado: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM ${registrosAsistencia} WHERE ${registrosAsistencia.horarioId} = ${horarios.id} AND ${registrosAsistencia.fecha} = ${today}) THEN 'Completado' ELSE 'Pendiente' END`
+                nombre: usuarios.nombre,
+                id: usuarios.id
             })
-            .from(horarios)
-            .leftJoin(secciones, eq(horarios.seccionId, secciones.id))
-            .leftJoin(materias, eq(horarios.materiaId, materias.id))
+            .from(asistenciaDocentes)
+            .innerJoin(usuarios, eq(asistenciaDocentes.docenteId, usuarios.id))
             .where(
                 and(
-                    eq(horarios.docenteId, session.user.id),
-                    eq(horarios.diaSemana, hoyDia as any)
+                    eq(asistenciaDocentes.fecha, today),
+                    eq(asistenciaDocentes.presente, false)
                 )
             )
-            .orderBy(horarios.horaInicio);
-    }
+            .catch(() => []);
 
-    return {
-        stats: {
-            totalEstudiantes: totalEstudiantes.count,
-            totalDocentes: totalDocentes.count,
-            inasistenciasAlumnos: inasistenciasAlumnosHoy.count,
-            inasistenciasPersonal: docentesAusentesHoy.length,
-            asistenciaPorcentaje: totalEstudiantes.count > 0
-                ? (((totalEstudiantes.count - inasistenciasAlumnosHoy.count) / totalEstudiantes.count) * 100).toFixed(1) + "%"
-                : "0%"
-        },
-        docentesAusentes: docentesAusentesHoy,
-        misClases
-    };
+        // Mis clases de hoy (si es docente)
+        const diaSemanaMap: Record<number, string> = {
+            0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
+        };
+
+        const now = new Date();
+        const options = { timeZone: "America/Caracas" };
+        const venezuelaDateStr = now.toLocaleString("en-US", options);
+        const venezuelaDate = new Date(venezuelaDateStr);
+        const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
+
+        let misClases: any[] = [];
+        if (session.user.id && (session.user.rol === "DOCENTE" || session.user.rol === "ADMINISTRATIVO" || session.user.rol === "OBRERO" || session.user.rol === "COORDINADOR")) {
+            misClases = await db
+                .select({
+                    id: horarios.id,
+                    seccion: secciones.nombre,
+                    materia: materias.nombre,
+                    descripcion: horarios.descripcion,
+                    hora: sql<string>`${horarios.horaInicio} || ' - ' || ${horarios.horaFin}`,
+                    estado: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM ${registrosAsistencia} WHERE ${registrosAsistencia.horarioId} = ${horarios.id} AND ${registrosAsistencia.fecha} = ${today}) THEN 'Completado' ELSE 'Pendiente' END`
+                })
+                .from(horarios)
+                .leftJoin(secciones, eq(horarios.seccionId, secciones.id))
+                .leftJoin(materias, eq(horarios.materiaId, materias.id))
+                .where(
+                    and(
+                        eq(horarios.docenteId, session.user.id),
+                        eq(horarios.diaSemana, hoyDia as any)
+                    )
+                )
+                .orderBy(horarios.horaInicio)
+                .catch(() => []);
+        }
+
+        return {
+            stats: {
+                totalEstudiantes: totalEstudiantesCount,
+                totalDocentes: totalDocentesCount,
+                inasistenciasAlumnos: inasistenciasAlumnosCount,
+                inasistenciasPersonal: docentesAusentesHoy.length,
+                asistenciaPorcentaje: totalEstudiantesCount > 0
+                    ? (((totalEstudiantesCount - inasistenciasAlumnosCount) / totalEstudiantesCount) * 100).toFixed(1) + "%"
+                    : "0%"
+            },
+            docentesAusentes: docentesAusentesHoy,
+            misClases
+        };
+    } catch (error) {
+        console.error("Dashboard data error:", error);
+        return {
+            stats: { totalEstudiantes: 0, totalDocentes: 0, inasistenciasAlumnos: 0, inasistenciasPersonal: 0, asistenciaPorcentaje: "0%" },
+            docentesAusentes: [],
+            misClases: []
+        };
+    }
 }
 
 export async function getCurrentClass() {
