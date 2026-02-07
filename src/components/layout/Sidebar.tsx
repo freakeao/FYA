@@ -70,11 +70,15 @@ export function Sidebar({ session }: { session: any }) {
             <nav className="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar scrollbar-hide py-2">
                 {filteredItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = pathname === item.href;
+                    // Normalize paths for comparison (remove trailing slashes)
+                    const normalizedPath = pathname?.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+                    const isActive = normalizedPath === item.href;
+
                     return (
                         <Link
                             key={item.name}
                             href={item.href}
+                            suppressHydrationWarning
                             className={cn(
                                 "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative",
                                 isActive
