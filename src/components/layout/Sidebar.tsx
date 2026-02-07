@@ -3,35 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-    Users,
-    Calendar,
-    BookOpen,
-    ClipboardCheck,
-    LayoutDashboard,
-    Settings,
-    LogOut,
-    ShieldCheck,
-    UserX,
-    UserCog
-} from "lucide-react";
-
+import { Settings, LogOut } from "lucide-react";
 import Image from "next/image";
-
 import { logoutUser } from "@/lib/actions";
-
-const menuItems = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Asistencia Alumnos", href: "/dashboard/asistencia", icon: ClipboardCheck },
-    { name: "Asistencia Personal", href: "/dashboard/asistencia/personal", icon: ShieldCheck, adminOrCoord: true },
-    { name: "Horarios", href: "/dashboard/horarios", icon: Calendar, adminOrCoord: true },
-    { name: "Secciones", href: "/dashboard/secciones", icon: Users, adminOrCoord: true },
-    { name: "Materias", href: "/dashboard/materias", icon: BookOpen, adminOrCoord: true },
-    { name: "Reportes", href: "/dashboard/reportes", icon: ClipboardCheck },
-    { name: "Mis Inasistencias", href: "/dashboard/mis-inasistencias", icon: UserX, docenteOnly: true },
-    { name: "Personal", href: "/dashboard/personal", icon: UserCog, adminOrCoord: true },
-    { name: "Usuarios", href: "/dashboard/usuarios", icon: ShieldCheck, adminOnly: true },
-];
+import { menuItems } from "@/lib/navigation";
 
 export function Sidebar({ session }: { session: any }) {
     const pathname = usePathname();
@@ -46,7 +21,7 @@ export function Sidebar({ session }: { session: any }) {
     });
 
     return (
-        <aside className="w-64 border-r border-border/40 h-screen bg-card/50 backdrop-blur-xl flex flex-col relative overflow-hidden shrink-0">
+        <aside className="hidden md:flex w-64 border-r border-border/40 h-screen bg-card/50 backdrop-blur-xl flex-col relative overflow-hidden shrink-0">
             {/* Ambient Light */}
             <div className="absolute top-0 left-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
 
@@ -59,6 +34,7 @@ export function Sidebar({ session }: { session: any }) {
                             fill
                             className="object-contain"
                             priority
+                            sizes="(max-width: 768px) 48px, 48px"
                         />
                     </div>
                     <h1 className="text-xl font-black tracking-tighter bg-gradient-to-br from-[#1a1a1a] to-[#e31b23] bg-clip-text text-transparent uppercase">

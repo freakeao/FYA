@@ -1,5 +1,6 @@
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
+import { MobileNav } from "./MobileNav";
 import { getSession } from "@/lib/auth";
 
 export default async function DashboardLayout({
@@ -21,12 +22,13 @@ export default async function DashboardLayout({
             <Sidebar session={session} />
             <div className="flex-1 flex flex-col min-w-0 relative z-10">
                 <Navbar session={session} />
-                <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 md:p-8">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 pb-24 md:pb-8">
                     <div className="max-w-full mx-auto space-y-8 animate-in fade-in duration-500">
                         {children}
                     </div>
                 </main>
             </div>
+            <MobileNav session={session} />
         </div>
     );
 }

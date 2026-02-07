@@ -107,25 +107,25 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
     return (
         <div className="space-y-6">
             {/* Search Toolbar */}
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4">
                 <div className="relative flex-1 group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <input
                         type="text"
-                        placeholder="Buscar docente por nombre o usuario..."
+                        placeholder="Buscar docente..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full h-14 bg-card/50 backdrop-blur-xl border border-border/40 rounded-2xl pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                        className="w-full h-12 md:h-14 bg-card/50 backdrop-blur-xl border border-border/40 rounded-2xl pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
                     />
                 </div>
 
-                <div className="relative group min-w-[220px]">
+                <div className="relative group w-full md:min-w-[220px]">
                     <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <input
                         type="date"
                         value={selectedDate}
                         onChange={(e) => router.push(`/dashboard/asistencia/personal?date=${e.target.value}`)}
-                        className="w-full h-14 bg-card/50 backdrop-blur-xl border border-border/40 rounded-2xl pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-black uppercase tracking-widest cursor-pointer"
+                        className="w-full h-12 md:h-14 bg-card/50 backdrop-blur-xl border border-border/40 rounded-2xl pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-black uppercase tracking-widest cursor-pointer"
                     />
                 </div>
             </div>
@@ -141,7 +141,7 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
 
                     return (
                         <div key={docente.id} className={cn(
-                            "premium-card p-6 rounded-[2rem] border transition-all duration-300 relative overflow-hidden group",
+                            "premium-card p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border transition-all duration-300 relative overflow-hidden group",
                             isPresent ? "bg-emerald-500/5 border-emerald-500/20" :
                                 isAbsent ? "bg-destructive/5 border-destructive/20" :
                                     "bg-card/50 border-border/40"
@@ -179,12 +179,12 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2 md:gap-3">
                                 <button
                                     disabled={loadingId === docente.id}
                                     onClick={() => handlePresent(docente.id)}
                                     className={cn(
-                                        "flex items-center justify-center gap-2 h-12 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95",
+                                        "flex items-center justify-center gap-2 h-11 md:h-12 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95",
                                         isPresent
                                             ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
                                             : "bg-accent/50 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600"
@@ -197,7 +197,7 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                                     disabled={loadingId === docente.id}
                                     onClick={() => openAbsenceModal(docente.id)}
                                     className={cn(
-                                        "flex items-center justify-center gap-2 h-12 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95",
+                                        "flex items-center justify-center gap-2 h-11 md:h-12 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95",
                                         isAbsent
                                             ? "bg-destructive text-white shadow-lg shadow-destructive/20"
                                             : "bg-accent/50 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

@@ -19,19 +19,19 @@ interface DiarioDetalleProps {
 export function DiarioDetalle({ clase, tema, setTema, incidencias, setIncidencias }: DiarioDetalleProps) {
     return (
         <div className="premium-card rounded-[2rem] overflow-hidden">
-            <div className="p-8 border-b border-border/40 bg-accent/5">
+            <div className="p-6 md:p-8 border-b border-border/40 bg-accent/5">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="font-bold text-xl flex items-center gap-2">
-                            <BookOpen className="w-6 h-6 text-primary" />
+                        <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">
+                            <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                             Detalle de la Clase
                         </h3>
-                        <p className="text-xs text-muted-foreground mt-1">Registre el tema desarrollado y las incidencias.</p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground mt-1">Registre el tema desarrollado.</p>
                     </div>
                 </div>
             </div>
 
-            <div className="p-8 space-y-8">
+            <div className="p-6 md:p-8 space-y-6 md:space-y-8">
                 <div className="grid gap-8 md:grid-cols-2">
                     <div className="space-y-3">
                         <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">

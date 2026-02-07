@@ -19,7 +19,7 @@ export function StudentList({
     claseActual
 }: StudentListProps) {
     return (
-        <div className="premium-card p-8 rounded-[2rem] sticky top-8 flex flex-col max-h-[calc(100vh-8rem)]">
+        <div className="premium-card p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] sticky top-8 flex flex-col max-h-[calc(100vh-8rem)]">
             <div className="flex items-center justify-between border-b border-border/40 pb-6 mb-6">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-destructive/10 rounded-xl">
@@ -30,7 +30,7 @@ export function StudentList({
                         <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Lista de alumnos ausentes</p>
                     </div>
                 </div>
-                <div className="bg-destructive/10 text-destructive text-xl font-black w-12 h-12 rounded-2xl flex items-center justify-center">
+                <div className="bg-destructive/10 text-destructive text-lg md:text-xl font-black w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center">
                     {inasistentes.length}
                 </div>
             </div>
@@ -46,9 +46,9 @@ export function StudentList({
                             key={alumno.id}
                             onClick={() => onToggle(alumno.id)}
                             className={cn(
-                                "w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 text-left relative overflow-hidden group",
+                                "w-full flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 transition-all duration-300 text-left relative overflow-hidden group active:scale-[0.98]",
                                 inasistentes.includes(alumno.id)
-                                    ? "bg-destructive/[0.03] border-destructive/30 text-destructive shadow-sm"
+                                    ? "bg-destructive/[0.05] border-destructive/30 text-destructive shadow-sm"
                                     : "bg-accent/20 border-transparent hover:border-primary/20 hover:bg-accent/40"
                             )}
                         >

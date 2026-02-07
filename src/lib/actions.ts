@@ -8,6 +8,9 @@ import { login, logout, getSession } from "./auth";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+const diaSemanaMap: Record<number, string> = {
+    0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
+};
 
 // --- SECCIONES ---
 // --- SECCIONES ---
@@ -556,43 +559,35 @@ export async function getDashboardData() {
     const today = new Date().toISOString().split('T')[0];
 
     try {
-        // 1. Estadísticas Generales
-        const totalEstudiantesRes = await db.select({ count: sql<number>`count(*)` }).from(estudiantes).catch(() => [{ count: 0 }]);
-        const totalDocentesRes = await db.select({ count: sql<number>`count(*)` }).from(usuarios).where(eq(usuarios.rol, "DOCENTE")).catch(() => [{ count: 0 }]);
+        // 1. Estadísticas Generales en Paralelo
+        const [totalEstudiantesRes, totalDocentesRes, inasistenciasAlumnosHoyRes, docentesAusentesHoy] = await Promise.all([
+            db.select({ count: sql<number>`count(*)` }).from(estudiantes).catch(() => [{ count: 0 }]),
+            db.select({ count: sql<number>`count(*)` }).from(usuarios).where(eq(usuarios.rol, "DOCENTE")).catch(() => [{ count: 0 }]),
+            db
+                .select({ count: sql<number>`count(*)` })
+                .from(inasistenciasAlumnos)
+                .innerJoin(registrosAsistencia, eq(inasistenciasAlumnos.registroId, registrosAsistencia.id))
+                .where(eq(registrosAsistencia.fecha, today))
+                .catch(() => [{ count: 0 }]),
+            db
+                .select({
+                    nombre: usuarios.nombre,
+                    id: usuarios.id
+                })
+                .from(asistenciaDocentes)
+                .innerJoin(usuarios, eq(asistenciaDocentes.docenteId, usuarios.id))
+                .where(
+                    and(
+                        eq(asistenciaDocentes.fecha, today),
+                        eq(asistenciaDocentes.presente, false)
+                    )
+                )
+                .catch(() => [])
+        ]);
 
         const totalEstudiantesCount = totalEstudiantesRes[0]?.count ?? 0;
         const totalDocentesCount = totalDocentesRes[0]?.count ?? 0;
-
-        // Inasistencias de alumnos hoy
-        const inasistenciasAlumnosHoyRes = await db
-            .select({ count: sql<number>`count(*)` })
-            .from(inasistenciasAlumnos)
-            .innerJoin(registrosAsistencia, eq(inasistenciasAlumnos.registroId, registrosAsistencia.id))
-            .where(eq(registrosAsistencia.fecha, today))
-            .catch(() => [{ count: 0 }]);
-
         const inasistenciasAlumnosCount = inasistenciasAlumnosHoyRes[0]?.count ?? 0;
-
-        // Docentes ausentes hoy
-        const docentesAusentesHoy = await db
-            .select({
-                nombre: usuarios.nombre,
-                id: usuarios.id
-            })
-            .from(asistenciaDocentes)
-            .innerJoin(usuarios, eq(asistenciaDocentes.docenteId, usuarios.id))
-            .where(
-                and(
-                    eq(asistenciaDocentes.fecha, today),
-                    eq(asistenciaDocentes.presente, false)
-                )
-            )
-            .catch(() => []);
-
-        // Mis clases de hoy (si es docente)
-        const diaSemanaMap: Record<number, string> = {
-            0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
-        };
 
         const now = new Date();
         const options = { timeZone: "America/Caracas" };
@@ -658,9 +653,6 @@ export async function getCurrentClass() {
     const venezuelaDateStr = now.toLocaleString("en-US", options);
     const venezuelaDate = new Date(venezuelaDateStr);
 
-    const diaSemanaMap: Record<number, string> = {
-        0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
-    };
     const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
 
     // Format current time as HH:MM based on Venezuela Date

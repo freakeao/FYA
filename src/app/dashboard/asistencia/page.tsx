@@ -136,8 +136,8 @@ export default function AsistenciaPage() {
                             Registro de Asistencia
                         </div>
                     </div>
-                    <h2 className="text-3xl font-bold tracking-tight px-2">Diario de Clases</h2>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground px-2">
+                    <h2 className="text-2xl md:text-3xl font-bold tracking-tight px-2">Diario de Clases</h2>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground px-2">
                         {claseActual ? (
                             <>
                                 <span className="bg-primary/5 text-primary px-2 py-0.5 rounded-md font-medium">{claseActual.grado} &quot;{claseActual.seccion}&quot;</span>
@@ -158,11 +158,11 @@ export default function AsistenciaPage() {
                         <Users className="w-4 h-4" />
                         Gestionar Alumnos
                     </Link>
-                    <div className="px-6 py-3 bg-card border border-border/40 rounded-3xl shadow-sm flex items-center gap-4">
-                        <div className="text-right border-r border-border/40 pr-4">
+                    <div className="px-4 py-3 bg-card border border-border/40 rounded-3xl shadow-sm flex items-center justify-between gap-4 w-full md:w-auto">
+                        <div className="text-right border-r border-border/40 pr-4 flex-1 md:flex-none">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">Fecha Hoy</p>
-                            <p className="text-sm font-bold">
-                                {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            <p className="text-xs md:text-sm font-bold">
+                                {new Date().toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
                             </p>
                         </div>
                         <div className="text-center">
