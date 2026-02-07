@@ -565,10 +565,17 @@ export async function getDashboardData() {
         );
 
     // Mis clases de hoy (si es docente)
-    const diaSemanaMap: { [key: number]: string } = {
+    const diaSemanaMap: Record<number, string> = {
         0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
     };
-    const hoyDia = diaSemanaMap[new Date().getDay()];
+
+    // Configurar fecha en zona horaria de Venezuela
+    const now = new Date();
+    const options = { timeZone: "America/Caracas" };
+    const venezuelaDateStr = now.toLocaleString("en-US", options);
+    const venezuelaDate = new Date(venezuelaDateStr);
+
+    const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
 
     let misClases: any[] = [];
     if (session.user.rol === "DOCENTE" || session.user.rol === "ADMINISTRATIVO" || session.user.rol === "OBRERO" || session.user.rol === "COORDINADOR") {
@@ -612,15 +619,21 @@ export async function getCurrentClass() {
     const session = await getSession();
     if (!session || !session.user) return null;
 
-    const diaSemanaMap: { [key: number]: string } = {
+    const now = new Date();
+
+    // Configurar fecha en zona horaria de Venezuela
+    const options = { timeZone: "America/Caracas" };
+    const venezuelaDateStr = now.toLocaleString("en-US", options);
+    const venezuelaDate = new Date(venezuelaDateStr);
+
+    const diaSemanaMap: Record<number, string> = {
         0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
     };
-    const now = new Date();
-    const hoyDia = diaSemanaMap[now.getDay()];
+    const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
 
-    // Format current time as HH:MM
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
+    // Format current time as HH:MM based on Venezuela Date
+    const hours = venezuelaDate.getHours().toString().padStart(2, '0');
+    const minutes = venezuelaDate.getMinutes().toString().padStart(2, '0');
     const currentTime = `${hours}:${minutes}`;
 
     try {

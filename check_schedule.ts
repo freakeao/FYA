@@ -3,14 +3,21 @@ const { db } = require('./src/lib/db/db');
 const { horarios, secciones, materias, usuarios } = require('./src/lib/db/schema');
 const { eq, and } = require('drizzle-orm');
 
-async function checkSchedule() {
-    const diaSemanaMap = {
+const checkSchedule = async () => {
+    // Configurar fecha en zona horaria de Venezuela
+    const now = new Date();
+    const options = { timeZone: "America/Caracas" };
+    // @ts-ignore
+    const venezuelaDateStr = now.toLocaleString("en-US", options);
+    const venezuelaDate = new Date(venezuelaDateStr);
+
+    const diaSemanaMap: Record<number, string> = {
         0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
     };
-    const now = new Date();
-    const hoyDia = diaSemanaMap[now.getDay()];
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
+
+    const hours = venezuelaDate.getHours().toString().padStart(2, '0');
+    const minutes = venezuelaDate.getMinutes().toString().padStart(2, '0');
     const currentTime = `${hours}:${minutes}`;
 
     console.log(`Current Time: ${currentTime}, Day: ${hoyDia}`);
