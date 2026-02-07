@@ -1,0 +1,21 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M100 180C100 180 20 120 20 70C20 40 45 25 65 25C80 25 92 35 100 45C108 35 120 25 135 25C155 25 180 40 180 70C180 120 100 180 100 180Z" fill="#E31B23"/>
+  <g fill="white">
+    <!-- Center Child -->
+    <circle cx="100" cy="75" r="8"/>
+    <path d="M92 88C92 88 95 120 100 120C105 120 108 88 108 88H92Z"/>
+    
+    <!-- Left Child -->
+    <circle cx="75" cy="85" r="7"/>
+    <path d="M68 96C68 96 72 125 75 125C78 125 82 96 82 96H68Z"/>
+    
+    <!-- Right Child -->
+    <circle cx="125" cy="85" r="7"/>
+    <path d="M118 96C118 96 122 125 125 125C128 125 132 96 132 96H118Z"/>
+    
+    <!-- Hands Connecting (simple lines) -->
+    <rect x="82" y="98" width="10" height="3" rx="1.5" transform="rotate(-15 82 98)"/>
+    <rect x="108" y="98" width="10" height="3" rx="1.5" transform="rotate(15 108 98)"/>
+  </g>
+  <text x="100" y="155" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="12">FE Y ALEGRIA</text>
+</svg>
