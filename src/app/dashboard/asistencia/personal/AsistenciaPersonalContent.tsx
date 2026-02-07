@@ -106,8 +106,8 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
 
     return (
         <div className="space-y-6">
-            {/* Search Toolbar */}
-            <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+            {/* Search and Date Navigator Toolbar */}
+            <div className="flex flex-col lg:flex-row gap-4">
                 <div className="relative flex-1 group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <input
@@ -115,18 +115,51 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                         placeholder="Buscar docente..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full h-12 md:h-14 bg-card/50 backdrop-blur-xl border border-border/40 rounded-2xl pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                        className="w-full h-14 bg-card/40 backdrop-blur-xl border border-border/40 rounded-3xl pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
                     />
                 </div>
 
-                <div className="relative group w-full md:min-w-[220px]">
-                    <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => router.push(`/dashboard/asistencia/personal?date=${e.target.value}`)}
-                        className="w-full h-12 md:h-14 bg-card/50 backdrop-blur-xl border border-border/40 rounded-2xl pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-black uppercase tracking-widest cursor-pointer"
-                    />
+                <div className="flex items-center gap-2 bg-card/40 backdrop-blur-xl border border-border/40 rounded-3xl p-1.5 h-14 w-full lg:w-auto">
+                    <button
+                        onClick={() => {
+                            const d = new Date(selectedDate + "T12:00:00");
+                            d.setDate(d.getDate() - 1);
+                            router.push(`/dashboard/asistencia/personal?date=${d.toISOString().split("T")[0]}`);
+                        }}
+                        className="h-11 w-11 flex items-center justify-center rounded-2xl hover:bg-accent transition-colors text-muted-foreground hover:text-primary"
+                    >
+                        <RotateCcw className="w-4 h-4 -rotate-90" />
+                    </button>
+
+                    <div className="relative flex-1 lg:flex-none flex items-center justify-center min-w-[180px] px-4 group">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest leading-none mb-1">
+                                {new Date(selectedDate + "T12:00:00").toLocaleDateString('es-ES', { weekday: 'long' })}
+                            </span>
+                            <div className="relative">
+                                <span className="text-sm font-black uppercase tracking-tighter">
+                                    {new Date(selectedDate + "T12:00:00").toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={(e) => router.push(`/dashboard/asistencia/personal?date=${e.target.value}`)}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => {
+                            const d = new Date(selectedDate + "T12:00:00");
+                            d.setDate(d.getDate() + 1);
+                            router.push(`/dashboard/asistencia/personal?date=${d.toISOString().split("T")[0]}`);
+                        }}
+                        className="h-11 w-11 flex items-center justify-center rounded-2xl hover:bg-accent transition-colors text-muted-foreground hover:text-primary"
+                    >
+                        <RotateCcw className="w-4 h-4 rotate-90" />
+                    </button>
                 </div>
             </div>
 
