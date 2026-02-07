@@ -181,28 +181,43 @@ export async function registrarAsistencia(data: {
 }
 
 // --- AUTENTICACION ---
+// --- AUTENTICACION ---
 export async function loginUser(formData: FormData) {
-    const usuario = formData.get("usuario") as string;
-    const password = formData.get("password") as string;
+    try {
+        const usuario = (formData.get("usuario") as string)?.trim().toLowerCase();
+        const password = formData.get("password") as string;
 
-    const [user] = await db.select().from(usuarios).where(eq(usuarios.usuario, usuario));
+        if (!usuario || !password) {
+            return { error: "Por favor, completa todos los campos" };
+        }
 
-    if (!user || !user.password) {
-        return { error: "Usuario no encontrado o sin acceso" };
+        const [user] = await db.select().from(usuarios).where(eq(usuarios.usuario, usuario));
+
+        if (!user || !user.password) {
+            return { error: "Usuario no encontrado o sin acceso" };
+        }
+
+        const passwordMatch = await bcrypt.compare(password, user.password);
+
+        if (!passwordMatch) {
+            return { error: "Contraseña incorrecta" };
+        }
+
+        await login({
+            id: user.id,
+            nombre: user.nombre,
+            usuario: user.usuario,
+            rol: user.rol,
+        });
+
+    } catch (error: any) {
+        // Required for Next.js redirect to work inside try/catch
+        if (error.digest?.includes('NEXT_REDIRECT') || error.message?.includes('NEXT_REDIRECT')) {
+            throw error;
+        }
+        console.error("Login crash:", error);
+        return { error: "Error de conexión con la base de datos. Verifica tu configuración." };
     }
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-
-    if (!passwordMatch) {
-        return { error: "Contraseña incorrecta" };
-    }
-
-    await login({
-        id: user.id,
-        nombre: user.nombre,
-        usuario: user.usuario,
-        rol: user.rol,
-    });
 
     redirect("/dashboard");
 }

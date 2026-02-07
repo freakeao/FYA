@@ -19,11 +19,12 @@ export const db = new Proxy({} as any, {
         const connectionString = process.env.DATABASE_URL;
 
         if (!connectionString) {
-            // If it's likely runtime (not a known build phase or common build-time prop access)
-            // we should still return something that won't crash immediately, 
-            // but we'll log a clear warning.
-            if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
-                console.warn("⚠️ DATABASE_URL is missing in production environment!");
+            // Throw a real error in production runtime to avoid cryptic crashes later
+            if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
+                // Check if we are in the build phase (Next.js sets NEXT_PHASE)
+                if (process.env.NEXT_PHASE !== 'phase-production-build') {
+                    throw new Error("DATABASE_URL is missing. Please configure it in your environment variables.");
+                }
             }
             return buildProxy;
         }
