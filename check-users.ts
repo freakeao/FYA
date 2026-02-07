@@ -15,7 +15,7 @@ async function list() {
         }).from(usuarios);
         console.log('👥 Usuarios encontrados:', JSON.stringify(res, null, 2));
 
-        const admin = res.find(u => u.usuario === 'admin');
+        const admin = res.find((u: any) => u.usuario === 'admin');
         if (admin && admin.password) {
             console.log('🔐 Probando contraseña "admin" para el usuario admin...');
             const match = await bcrypt.compare('admin', admin.password);
