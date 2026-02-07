@@ -119,44 +119,47 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                     />
                 </div>
 
-                <div className="flex items-center gap-2 bg-card/40 backdrop-blur-xl border border-border/40 rounded-3xl p-1.5 h-14 w-full lg:w-auto">
+                <div className="flex items-center gap-2 bg-white/70 backdrop-blur-3xl border border-white/40 rounded-3xl p-1.5 h-14 w-full lg:w-auto shadow-sm">
                     <button
+                        type="button"
                         onClick={() => {
                             const d = new Date(selectedDate + "T12:00:00");
                             d.setDate(d.getDate() - 1);
                             router.push(`/dashboard/asistencia/personal?date=${d.toISOString().split("T")[0]}`);
                         }}
-                        className="h-11 w-11 flex items-center justify-center rounded-2xl hover:bg-accent transition-colors text-muted-foreground hover:text-primary"
+                        className="h-11 w-11 flex items-center justify-center rounded-2xl hover:bg-accent transition-all active:scale-90 text-muted-foreground hover:text-primary"
+                        title="Día Anterior"
                     >
                         <RotateCcw className="w-4 h-4 -rotate-90" />
                     </button>
 
-                    <div className="relative flex-1 lg:flex-none flex items-center justify-center min-w-[180px] px-4 group">
+                    <div className="relative flex-1 lg:flex-none flex items-center justify-center min-w-[200px] px-4 group cursor-pointer hover:bg-accent/30 rounded-2xl transition-all h-11">
+                        <CalendarIcon className="w-4 h-4 text-primary/40 mr-3" />
                         <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest leading-none mb-1">
+                            <span className="text-[9px] font-black text-primary/60 uppercase tracking-widest leading-none mb-0.5">
                                 {new Date(selectedDate + "T12:00:00").toLocaleDateString('es-ES', { weekday: 'long' })}
                             </span>
-                            <div className="relative">
-                                <span className="text-sm font-black uppercase tracking-tighter">
-                                    {new Date(selectedDate + "T12:00:00").toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </span>
-                                <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => router.push(`/dashboard/asistencia/personal?date=${e.target.value}`)}
-                                    className="absolute inset-0 opacity-0 cursor-pointer"
-                                />
-                            </div>
+                            <span className="text-xs font-black uppercase tracking-tighter">
+                                {new Date(selectedDate + "T12:00:00").toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
                         </div>
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => router.push(`/dashboard/asistencia/personal?date=${e.target.value}`)}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        />
                     </div>
 
                     <button
+                        type="button"
                         onClick={() => {
                             const d = new Date(selectedDate + "T12:00:00");
                             d.setDate(d.getDate() + 1);
                             router.push(`/dashboard/asistencia/personal?date=${d.toISOString().split("T")[0]}`);
                         }}
-                        className="h-11 w-11 flex items-center justify-center rounded-2xl hover:bg-accent transition-colors text-muted-foreground hover:text-primary"
+                        className="h-11 w-11 flex items-center justify-center rounded-2xl hover:bg-accent transition-all active:scale-90 text-muted-foreground hover:text-primary"
+                        title="Día Siguiente"
                     >
                         <RotateCcw className="w-4 h-4 rotate-90" />
                     </button>
