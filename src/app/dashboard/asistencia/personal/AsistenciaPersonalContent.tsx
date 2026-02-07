@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { UserCheck, UserX, Search, MessageSquare, AlertCircle, Calendar as CalendarIcon, X, Save, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { upsertAsistenciaDocente, deleteAsistenciaDocente } from "@/lib/actions";
@@ -17,6 +17,7 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
     const [search, setSearch] = useState("");
     const [asistencias, setAsistencias] = useState(asistenciaInicial);
     const [loadingId, setLoadingId] = useState<string | null>(null);
+    const dateInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
     // Modal state
@@ -133,7 +134,10 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                         <RotateCcw className="w-4 h-4 -rotate-90" />
                     </button>
 
-                    <div className="relative flex-1 lg:flex-none flex items-center justify-center min-w-[200px] px-4 group cursor-pointer hover:bg-accent/30 rounded-2xl transition-all h-11">
+                    <div
+                        onClick={() => dateInputRef.current?.showPicker()}
+                        className="relative flex-1 lg:flex-none flex items-center justify-center min-w-[200px] px-4 group cursor-pointer hover:bg-accent/30 rounded-2xl transition-all h-11"
+                    >
                         <CalendarIcon className="w-4 h-4 text-primary/40 mr-3" />
                         <div className="flex flex-col items-center">
                             <span className="text-[9px] font-black text-primary/60 uppercase tracking-widest leading-none mb-0.5">
@@ -144,10 +148,11 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                             </span>
                         </div>
                         <input
+                            ref={dateInputRef}
                             type="date"
                             value={selectedDate}
                             onChange={(e) => router.push(`/dashboard/asistencia/personal?date=${e.target.value}`)}
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full pointer-events-none"
                         />
                     </div>
 
