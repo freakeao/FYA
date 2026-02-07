@@ -40,7 +40,7 @@ export default async function MisInasistenciasPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {inasistencias.map((ina, idx) => (
+                        {inasistencias.map((ina: any, idx: number) => (
                             <div key={idx} className="premium-card p-6 rounded-[2rem] border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-all duration-300">
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-2 text-destructive">
