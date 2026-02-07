@@ -163,9 +163,10 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
                                         setEditingPersonal(person);
                                         setIsFormModalOpen(true);
                                     }}
-                                    className="p-2 hover:bg-accent rounded-xl text-muted-foreground hover:text-foreground transition-colors"
+                                    className="flex items-center gap-2 px-3 py-2 bg-accent/50 hover:bg-primary/10 rounded-xl text-muted-foreground hover:text-primary transition-all border border-transparent hover:border-primary/20 group/edit"
                                 >
-                                    <UserCog className="w-4 h-4" />
+                                    <UserCog className="w-4 h-4 group-hover/edit:rotate-12 transition-transform" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Editar</span>
                                 </button>
                                 {person.id !== session.user.id && (
                                     <button

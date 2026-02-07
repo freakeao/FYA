@@ -28,6 +28,14 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen bg-[#fcfcfd] flex items-center justify-center p-6 relative overflow-hidden font-sans">
+            {/* Developer Credit */}
+            <div className="absolute top-8 right-8 z-50 animate-in fade-in slide-in-from-right-4 duration-1000">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+                    <span className="opacity-50">Desarrollado Por:</span>
+                    <span className="text-[#e31b23] font-black group-hover:scale-110 transition-transform cursor-default">freakeao</span>
+                </p>
+            </div>
+
             {/* Ambient Background Lights - Softer and brand-aligned */}
             <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#e31b23]/5 rounded-full blur-[140px] animate-pulse" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#e31b23]/3 rounded-full blur-[140px] animate-pulse delay-700" />
@@ -78,7 +86,7 @@ export default function LoginPage() {
                                         name="usuario"
                                         type="text"
                                         required
-                                        placeholder="admin"
+                                        placeholder="usuario"
                                         className="w-full h-14 bg-gray-50/50 border border-gray-100 rounded-2xl pl-12 pr-4 text-sm text-[#1a1a1a] placeholder:text-gray-300 outline-none focus:ring-2 focus:ring-[#e31b23]/10 focus:border-[#e31b23]/30 transition-all font-medium"
                                     />
                                 </div>
