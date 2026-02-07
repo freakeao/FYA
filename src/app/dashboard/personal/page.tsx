@@ -3,6 +3,8 @@ import { getSession } from "@/lib/auth";
 import { PersonalContent } from "./PersonalContent";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function PersonalPage() {
     const session = await getSession();
     if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) {

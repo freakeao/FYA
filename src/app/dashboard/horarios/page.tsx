@@ -43,6 +43,7 @@ export default async function GestionHorariosPage({ searchParams }: { searchPara
                 secciones={secciones}
                 materias={materias}
                 docentes={docentes}
+                currentDay={currentDay}
             />
         </div>
     );

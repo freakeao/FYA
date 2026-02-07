@@ -685,17 +685,13 @@ export async function bulkCreateEstudiantes(data: { nombre: string; numeroLista:
 
         const seccionId = data[0].seccionId;
 
-        await db.transaction(async (tx) => {
-            for (const estudiante of data) {
-                await tx.insert(estudiantes).values({
-                    nombre: estudiante.nombre,
-                    numeroLista: estudiante.numeroLista,
-                    genero: estudiante.genero,
-                    cedula: estudiante.cedula,
-                    seccionId: estudiante.seccionId
-                });
-            }
-        });
+        await db.insert(estudiantes).values(data.map(estudiante => ({
+            nombre: estudiante.nombre,
+            numeroLista: estudiante.numeroLista,
+            genero: estudiante.genero,
+            cedula: estudiante.cedula,
+            seccionId: estudiante.seccionId
+        })));
 
         revalidatePath(`/dashboard/secciones/${seccionId}/estudiantes`);
         return { success: true, message: `${data.length} estudiantes importados correctamente` };
@@ -709,29 +705,23 @@ export async function bulkCreateUsuarios(data: { nombre: string; usuario?: strin
     try {
         if (data.length === 0) return { success: false, error: "No hay datos para importar" };
 
-        await db.transaction(async (tx) => {
-            for (const u of data) {
-                // Check if user already exists to avoid unique constraint error
-                // Only if usuario is provided
-                if (u.usuario) {
-                    const existing = await tx.select().from(usuarios).where(eq(usuarios.usuario, u.usuario)).limit(1);
-                    if (existing.length > 0) continue;
-                }
-
+        const preparedData = await Promise.all(
+            data.map(async (u) => {
                 let hashedPassword = null;
                 if (u.password) {
                     hashedPassword = await bcrypt.hash(u.password, 10);
                 }
-
-                await tx.insert(usuarios).values({
+                return {
                     nombre: u.nombre,
                     usuario: u.usuario || null,
                     password: hashedPassword,
                     rol: u.rol,
                     cedula: u.cedula
-                });
-            }
-        });
+                };
+            })
+        );
+
+        await db.insert(usuarios).values(preparedData).onConflictDoNothing({ target: usuarios.usuario });
 
         revalidatePath("/dashboard/usuarios");
         revalidatePath("/dashboard/personal");

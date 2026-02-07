@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
     Plus,
     Search,
@@ -24,12 +25,13 @@ interface HorariosContentProps {
     secciones: any[];
     materias: any[];
     docentes: any[];
+    currentDay: string;
 }
 
 const DIAS = ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES"];
 
-export function HorariosContent({ initialHorarios, secciones, materias, docentes }: HorariosContentProps) {
-    const [selectedDay, setSelectedDay] = useState("LUNES");
+export function HorariosContent({ initialHorarios, secciones, materias, docentes, currentDay }: HorariosContentProps) {
+    const router = useRouter();
     const [search, setSearch] = useState("");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [idToDelete, setIdToDelete] = useState<string | null>(null);
@@ -66,10 +68,10 @@ export function HorariosContent({ initialHorarios, secciones, materias, docentes
                     {DIAS.map((dia) => (
                         <button
                             key={dia}
-                            onClick={() => setSelectedDay(dia)}
+                            onClick={() => router.push(`/dashboard/horarios?day=${dia}`)}
                             className={cn(
                                 "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95",
-                                selectedDay === dia
+                                currentDay === dia
                                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                                     : "bg-accent/40 text-muted-foreground hover:bg-accent"
                             )}
@@ -199,7 +201,7 @@ export function HorariosContent({ initialHorarios, secciones, materias, docentes
                 materias={materias}
                 docentes={docentes}
                 editingHorario={editingHorario}
-                day={selectedDay}
+                day={currentDay}
             />
 
             <DeleteConfirmModal
