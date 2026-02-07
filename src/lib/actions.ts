@@ -5,7 +5,7 @@ import { secciones, materias, estudiantes, horarios, registrosAsistencia, inasis
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { login, logout, getSession } from "./auth";
-import * as bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 

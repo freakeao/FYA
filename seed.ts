@@ -1,6 +1,6 @@
 import { db } from './src/lib/db/db';
 import { usuarios, secciones, materias, estudiantes, horarios } from './src/lib/db/schema';
-import * as bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import 'dotenv/config';
 
 async function seed() {
