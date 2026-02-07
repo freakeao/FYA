@@ -10,7 +10,7 @@ export default async function GestionSeccionesPage() {
         getUsuarios()
     ]);
 
-    const docentes = usuarios.filter(u => u.rol === 'DOCENTE' || u.rol === 'COORDINADOR');
+    const docentes = usuarios.filter((u: any) => u.rol === 'DOCENTE' || u.rol === 'COORDINADOR');
 
     return (
         <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
