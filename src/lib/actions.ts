@@ -900,16 +900,13 @@ export async function bulkCreateUsuarios(data: { nombre: string; usuario?: strin
     }
 }
 
-export async function getClassesToday() {
+export async function getClassesByDate(dateStr: string) {
     const session = await getSession();
     if (!session || !session.user) return [];
 
-    const now = new Date();
-    const options = { timeZone: "America/Caracas" };
-    const venezuelaDateStr = now.toLocaleString("en-US", options);
-    const venezuelaDate = new Date(venezuelaDateStr);
-    const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
-    const today = new Date().toISOString().split('T')[0];
+    // Parse the input date (expected format YYYY-MM-DD)
+    const dateObj = new Date(dateStr + 'T12:00:00');
+    const hoyDia = diaSemanaMap[dateObj.getDay()];
 
     try {
         const isStaff = session.user.rol === "ADMINISTRADOR" || session.user.rol === "COORDINADOR";
@@ -925,7 +922,8 @@ export async function getClassesToday() {
                 horaInicio: horarios.horaInicio,
                 horaFin: horarios.horaFin,
                 timeString: sql<string>`${horarios.horaInicio} || ' - ' || ${horarios.horaFin}`,
-                estado: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM ${registrosAsistencia} WHERE ${registrosAsistencia.horarioId} = ${horarios.id} AND ${registrosAsistencia.fecha} = ${today}) THEN 'Completado' ELSE 'Pendiente' END`
+                // Check if attendance exists for THIS specific date
+                estado: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM ${registrosAsistencia} WHERE ${registrosAsistencia.horarioId} = ${horarios.id} AND ${registrosAsistencia.fecha} = ${dateStr}) THEN 'Completado' ELSE 'Pendiente' END`
             })
             .from(horarios)
             .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
@@ -939,9 +937,68 @@ export async function getClassesToday() {
             )
             .orderBy(horarios.horaInicio);
 
+        // Filter valid classes for that day based on day of week enum
+        // (Calculated above via hoyDia)
+
         return misClases;
     } catch (error) {
-        console.error("Error fetching classes today:", error);
+        console.error("Error fetching classes by date:", error);
         return [];
     }
+}
+
+export async function getPendingClasses(days: number = 7) {
+    const session = await getSession();
+    // Only for admins/coordinators
+    if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) return [];
+
+    const result = [];
+    const today = new Date();
+
+    // Loop back 'days' days
+    for (let i = 0; i < days; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayOfWeek = diaSemanaMap[d.getDay()];
+
+        // Skip calling if dayOfWeek is undefined (e.g. if map is incomplete, though it shouldn't be)
+        if (!dayOfWeek) continue;
+
+        try {
+            const missed = await db
+                .select({
+                    id: horarios.id,
+                    seccion: secciones.nombre,
+                    seccionId: horarios.seccionId,
+                    grado: secciones.grado,
+                    materia: materias.nombre,
+                    docente: usuarios.nombre,
+                    horaInicio: horarios.horaInicio,
+                    date: sql<string>`${dateStr}`,
+                })
+                .from(horarios)
+                .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
+                .innerJoin(materias, eq(horarios.materiaId, materias.id))
+                .innerJoin(usuarios, eq(horarios.docenteId, usuarios.id))
+                .where(
+                    and(
+                        eq(horarios.diaSemana, dayOfWeek as any),
+                        sql`NOT EXISTS (
+                            SELECT 1 FROM ${registrosAsistencia} 
+                            WHERE ${registrosAsistencia.horarioId} = ${horarios.id} 
+                            AND ${registrosAsistencia.fecha} = ${dateStr}
+                        )`
+                    )
+                );
+
+            if (missed.length > 0) {
+                result.push(...missed);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    return result;
 }

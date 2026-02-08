@@ -5,7 +5,12 @@ import {
     ClipboardCheck,
     Users,
     ChevronRight,
-    ArrowLeft
+    ArrowLeft,
+    Calendar,
+    ChevronLeft,
+    Clock,
+    CheckCircle2,
+    AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import { DiarioDetalle } from "@/components/diario/DiarioDetalle";
@@ -13,7 +18,7 @@ import { StudentList } from "@/components/diario/StudentList";
 import { NumberInput } from "@/components/common/NumberInput";
 
 import { toast } from "sonner";
-import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia, getClassesToday } from "@/lib/actions";
+import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia, getClassesByDate } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +31,7 @@ interface ClaseActual {
     horaInicio: string;
     horaFin: string;
     timeString: string;
+    estado?: string;
 }
 
 interface Estudiante {
@@ -40,6 +46,18 @@ interface Estudiante {
 export default function AsistenciaPage() {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
+
+    // Date State
+    const [date, setDate] = useState(() => {
+        // Initialize with today in YYYY-MM-DD format
+        const now = new Date();
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Caracas',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(now);
+    });
 
     const [h, setH] = useState(0);
     const [v, setV] = useState(0);
@@ -56,32 +74,73 @@ export default function AsistenciaPage() {
 
     useEffect(() => {
         setMounted(true);
-        refreshClassData();
-    }, []);
+        refreshClassData(date);
+    }, [date]);
 
-    async function refreshClassData() {
-        const [clase, allToday] = await Promise.all([
-            getCurrentClass(),
-            getClassesToday()
-        ]);
+    async function refreshClassData(selectedDate: string) {
+        setLoading(true);
+        try {
+            // First, try to see if there is an ACTIVE class right now (only if date is today)
+            // But user might want to see the list first? 
+            // Let's just fetch all classes for the selected date.
 
-        setAllClassesToday(allToday);
-        if (clase) {
-            handleClassSelected(clase);
-        } else if (allToday.length > 0) {
-            // Default to the first one if none currently active? 
-            // Better to let user pick.
+            const allToday = await getClassesByDate(selectedDate);
+            setAllClassesToday(allToday);
+
+            // Logic: If date is TODAY, maybe auto-select current class?
+            // Only if user hasn't manually navigated away or deselected.
+            // For now, let's auto-select only if it's the initial load.
+            if (!claseActual) {
+                const now = new Date();
+                const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+
+                if (selectedDate === todayStr) {
+                    const current = await getCurrentClass();
+                    if (current) {
+                        handleClassSelected(current);
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
         }
     }
+
+    const handleDateChange = (newDate: string) => {
+        setDate(newDate);
+        setClaseActual(null); // Reset selection when changing date
+    };
+
+    const handlePrevDay = () => {
+        const d = new Date(date + 'T12:00:00');
+        d.setDate(d.getDate() - 1);
+        handleDateChange(d.toISOString().split('T')[0]);
+    };
+
+    const handleNextDay = () => {
+        const d = new Date(date + 'T12:00:00');
+        d.setDate(d.getDate() + 1);
+        handleDateChange(d.toISOString().split('T')[0]);
+    };
 
     const handleClassSelected = (clase: any) => {
         setClaseActual(clase);
         setInasistentes([]); // Reset inasistencias when class changes
+        setTema("");
+        setIncidencias("");
         if (clase?.seccionId) {
             getEstudiantesBySeccion(clase.seccionId).then((data) => {
                 setEstudiantes(data);
                 const hembras = data.filter((e: any) => e.genero === "HEMBRA").length;
                 const varones = data.filter((e: any) => e.genero === "VARON").length;
+
+                // If the class is already completed, we might want to fetch the existing attendance record...
+                // But for now, we assume we want to VIEW/EDIT if it allows? 
+                // Or just show stats? The requirement is to report if forgotten.
+
                 setH(hembras);
                 setV(varones);
             });
@@ -116,17 +175,9 @@ export default function AsistenciaPage() {
 
         setLoading(true);
         try {
-            // Obtener fecha actual en Venezuela para el registro
-            const venezuelaDate = new Intl.DateTimeFormat('en-CA', {
-                timeZone: 'America/Caracas',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit'
-            }).format(new Date());
-
             await registrarAsistencia({
                 horarioId: claseActual.id,
-                fecha: venezuelaDate,
+                fecha: date, // Use the SELECTED date, not necessarily today
                 tema,
                 incidencias,
                 cantidadH: stats.h,
@@ -135,7 +186,11 @@ export default function AsistenciaPage() {
                 inasistencias: inasistentes
             });
             toast.success("Asistencia registrada correctamente");
-            router.push("/dashboard");
+
+            // Refund fetching to update status
+            refreshClassData(date);
+            setClaseActual(null); // Go back to list?
+
         } catch (error) {
             toast.error("Error al registrar asistencia");
             console.error(error);
@@ -164,29 +219,31 @@ export default function AsistenciaPage() {
                         </div>
                     </div>
                     <h2 className="text-2xl md:text-3xl font-bold tracking-tight px-2">Diario de Clases</h2>
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground px-2">
-                        {claseActual ? (
-                            <>
-                                <span className="bg-primary/5 text-primary px-2 py-0.5 rounded-md font-medium">{claseActual.grado} &quot;{claseActual.seccion}&quot;</span>
-                                <ChevronRight className="w-3 h-3 opacity-50" />
-                                <span className="font-medium text-foreground">{claseActual.materia} ({claseActual.timeString})</span>
-                                {(claseActual as any).docente && (
-                                    <>
-                                        <ChevronRight className="w-3 h-3 opacity-50" />
-                                        <span className="font-bold text-primary/70 italic text-[10px] uppercase tracking-tighter self-center ml-1">
-                                            Docente: {(claseActual as any).docente}
-                                        </span>
-                                    </>
-                                )}
-                            </>
-                        ) : (
-                            <span className="font-medium text-muted-foreground">No hay clase activa en este momento</span>
-                        )}
+
+                    {/* Date Navigation */}
+                    <div className="flex items-center gap-2 px-2 pt-2">
+                        <button onClick={handlePrevDay} className="p-1 hover:bg-accent rounded-lg transition-colors">
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <div className="relative group">
+                            <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                            <input
+                                type="date"
+                                value={date}
+                                onChange={(e) => handleDateChange(e.target.value)}
+                                className="pl-9 pr-3 py-1 bg-transparent border border-border/40 rounded-lg text-sm font-bold uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                        </div>
+                        <button onClick={handleNextDay} className="p-1 hover:bg-accent rounded-lg transition-colors">
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
                     </div>
+
                 </div>
 
                 <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-                    {allClassesToday.length > 0 && (
+                    {/* Only show select if we are in detail view */}
+                    {claseActual && allClassesToday.length > 0 && (
                         <div className="relative group w-full md:w-64">
                             <select
                                 onChange={(e) => {
@@ -196,10 +253,10 @@ export default function AsistenciaPage() {
                                 value={claseActual?.id || ""}
                                 className="w-full h-12 bg-white/70 backdrop-blur-xl border border-border/40 rounded-2xl px-4 text-xs font-bold uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
                             >
-                                <option value="" disabled>Seleccionar clase...</option>
+                                <option value="" disabled>Cambiar clase...</option>
                                 {allClassesToday.map((c) => (
                                     <option key={c.id} value={c.id}>
-                                        {c.grado} "{c.seccion}" - {c.materia} ({c.docente})
+                                        {c.grado} "{c.seccion}" - {c.materia}
                                     </option>
                                 ))}
                             </select>
@@ -209,92 +266,150 @@ export default function AsistenciaPage() {
                         </div>
                     )}
 
-                    <Link
-                        href={claseActual?.seccionId ? `/dashboard/secciones/${claseActual.seccionId}/estudiantes` : "/dashboard/secciones"}
-                        className="px-4 py-2 bg-accent/50 hover:bg-accent border border-border/40 rounded-2xl text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all w-full md:w-auto justify-center h-12"
-                    >
-                        <Users className="w-4 h-4" />
-                        Gestionar Alumnos
-                    </Link>
-
-                    <div className="px-4 py-2 bg-card border border-border/40 rounded-3xl shadow-sm flex items-center justify-between gap-4 w-full md:w-auto h-12">
-                        <div className="text-right border-r border-border/40 pr-4 flex-1 md:flex-none">
-                            <p className="text-[8px] font-bold text-muted-foreground uppercase leading-tight">Fecha Hoy</p>
-                            <p className="text-[11px] font-black uppercase">
-                                {new Date().toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
-                            </p>
+                    {claseActual && (
+                        <div className="px-4 py-2 bg-card border border-border/40 rounded-3xl shadow-sm flex items-center justify-between gap-4 w-full md:w-auto h-12">
+                            <div className="text-center">
+                                <p className="text-[8px] font-bold text-muted-foreground uppercase leading-tight">Estado</p>
+                                <span className={cn(
+                                    "text-[9px] font-black px-2 py-0.5 rounded-full uppercase",
+                                    (claseActual as any)?.estado === 'Completado' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                                )}>
+                                    {(claseActual as any)?.estado || 'Pendiente'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="text-center">
-                            <p className="text-[8px] font-bold text-muted-foreground uppercase leading-tight">Estado</p>
-                            <span className={cn(
-                                "text-[9px] font-black px-2 py-0.5 rounded-full uppercase",
-                                (claseActual as any)?.estado === 'Completado' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
-                            )}>
-                                {(claseActual as any)?.estado || 'Pendiente'}
-                            </span>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-12">
-                {/* Lado Izquierdo: Conteo y Detalle de Clase */}
-                <div className="lg:col-span-8 space-y-6">
-                    <div className="premium-card p-8 rounded-[2rem]">
-                        <div className="flex items-center gap-2 border-b border-border/40 pb-6 mb-8">
-                            <Users className="w-6 h-6 text-primary" />
-                            <div>
-                                <h3 className="font-bold text-xl">Conteo de Asistentes</h3>
-                                <p className="text-xs text-muted-foreground">Calculado automáticamente basado en la lista.</p>
+            {/* Main Content Area */}
+            {claseActual ? (
+                // DETAIL VIEW (Existing functionality)
+                <div className="grid gap-6 lg:grid-cols-12 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="lg:col-span-8 space-y-6">
+                        <div className="premium-card p-8 rounded-[2rem]">
+                            <div className="flex items-center gap-2 border-b border-border/40 pb-6 mb-8">
+                                <Users className="w-6 h-6 text-primary" />
+                                <div>
+                                    <h3 className="font-bold text-xl">Conteo de Asistentes</h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {claseActual.grado} "{claseActual.seccion}" - {claseActual.materia}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setClaseActual(null)}
+                                    className="ml-auto text-xs font-bold text-primary hover:underline"
+                                >
+                                    Ver todas las clases
+                                </button>
                             </div>
-                        </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-                            <NumberInput
-                                label="Hembras (H)"
-                                value={stats.h}
-                                onChange={() => { }} // Read-only derived from list
-                                color="border-rose-100 focus:ring-rose-50/50 hover:border-rose-200"
-                                subLabel="Alumnas"
-                            />
-                            <NumberInput
-                                label="Varones (V)"
-                                value={stats.v}
-                                onChange={() => { }} // Read-only derived from list
-                                color="border-blue-100 focus:ring-blue-50/50 hover:border-blue-200"
-                                subLabel="Alumnos"
-                            />
-                            <div className="flex flex-col gap-3">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">Total (T)</label>
-                                <div className="h-20 w-full flex flex-col items-center justify-center rounded-3xl bg-primary/5 border-2 border-dashed border-primary/20 relative group transition-all">
-                                    <span className="text-4xl font-black text-primary drop-shadow-sm">{stats.t}</span>
-                                    <span className="text-[10px] font-bold text-primary/60 uppercase">Presentes</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+                                <NumberInput
+                                    label="Hembras (H)"
+                                    value={stats.h}
+                                    onChange={() => { }}
+                                    color="border-rose-100 focus:ring-rose-50/50 hover:border-rose-200"
+                                    subLabel="Alumnas"
+                                />
+                                <NumberInput
+                                    label="Varones (V)"
+                                    value={stats.v}
+                                    onChange={() => { }}
+                                    color="border-blue-100 focus:ring-blue-50/50 hover:border-blue-200"
+                                    subLabel="Alumnos"
+                                />
+                                <div className="flex flex-col gap-3">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">Total (T)</label>
+                                    <div className="h-20 w-full flex flex-col items-center justify-center rounded-3xl bg-primary/5 border-2 border-dashed border-primary/20 relative group transition-all">
+                                        <span className="text-4xl font-black text-primary drop-shadow-sm">{stats.t}</span>
+                                        <span className="text-[10px] font-bold text-primary/60 uppercase">Presentes</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+                        <DiarioDetalle
+                            clase={claseActual}
+                            tema={tema}
+                            setTema={setTema}
+                            incidencias={incidencias}
+                            setIncidencias={setIncidencias}
+                        />
                     </div>
 
-                    <DiarioDetalle
-                        clase={claseActual}
-                        tema={tema}
-                        setTema={setTema}
-                        incidencias={incidencias}
-                        setIncidencias={setIncidencias}
-                    />
+                    <div className="lg:col-span-4 space-y-6">
+                        <StudentList
+                            estudiantes={estudiantes}
+                            inasistentes={inasistentes}
+                            onToggle={toggleInasistente}
+                            loading={loading}
+                            onSubmit={handleFinalizarRegistro}
+                            claseActual={claseActual}
+                        />
+                    </div>
                 </div>
+            ) : (
+                // GRID VIEW (New Functionality)
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-muted-foreground uppercase tracking-widest">
+                            Clases del día ({allClassesToday.length})
+                        </h3>
+                    </div>
 
-                {/* Lado Derecho: Inasistencias */}
-                <div className="lg:col-span-4 space-y-6">
-                    <StudentList
-                        estudiantes={estudiantes}
-                        inasistentes={inasistentes}
-                        onToggle={toggleInasistente}
-                        loading={loading}
-                        onSubmit={handleFinalizarRegistro}
-                        claseActual={claseActual}
-                    />
+                    {allClassesToday.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                            <Calendar className="w-12 h-12 mb-4 opacity-20" />
+                            <p>No hay clases programadas para este día.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {allClassesToday.map((clase) => (
+                                <button
+                                    key={clase.id}
+                                    onClick={() => handleClassSelected(clase)}
+                                    className="group relative flex flex-col items-start p-6 bg-card hover:bg-accent/50 border border-border/40 hover:border-primary/20 rounded-[2rem] transition-all duration-300 hover:shadow-lg text-left w-full"
+                                >
+                                    <div className="absolute top-6 right-6">
+                                        {clase.estado === 'Completado' ? (
+                                            <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                                        ) : (
+                                            <AlertCircle className="w-6 h-6 text-amber-500/50 group-hover:text-amber-500 transition-colors" />
+                                        )}
+                                    </div>
+
+                                    <div className="mb-4">
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest">
+                                            {clase.grado} "{clase.seccion}"
+                                        </span>
+                                    </div>
+
+                                    <h4 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">
+                                        {clase.materia}
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground font-medium mb-6">
+                                        Docente: {clase.docente}
+                                    </p>
+
+                                    <div className="mt-auto w-full flex items-center justify-between pt-4 border-t border-border/40">
+                                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            {clase.horaInicio} - {clase.horaFin}
+                                        </div>
+                                        <div className={cn(
+                                            "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
+                                            clase.estado === 'Completado' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                                        )}>
+                                            {clase.estado || 'Pendiente'}
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
-            </div>
+            )}
         </div>
     );
 
