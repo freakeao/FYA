@@ -673,47 +673,43 @@ export async function getCurrentClass() {
     if (!session || !session.user) return null;
 
     const now = new Date();
-
-    // Configurar fecha en zona horaria de Venezuela
     const options = { timeZone: "America/Caracas" };
     const venezuelaDateStr = now.toLocaleString("en-US", options);
     const venezuelaDate = new Date(venezuelaDateStr);
-
     const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
-
-    // Format current time as HH:MM based on Venezuela Date
     const hours = venezuelaDate.getHours().toString().padStart(2, '0');
     const minutes = venezuelaDate.getMinutes().toString().padStart(2, '0');
     const currentTime = `${hours}:${minutes}`;
 
     try {
-        // Find a class that is currently happening or the next one regarding the current schedule logic
-        // For simplicity, let's look for a class where current time is between start and end
-        // Or just return the first class of the day if we want to default to something.
-        // User request: "si ya el docente tiene una materia asignada y una hora de clase deben aparecer alli de una vez"
+        const isStaff = session.user.rol === "ADMINISTRADOR" || session.user.rol === "COORDINADOR";
 
-        const [claseActual] = await db
+        const query = db
             .select({
                 id: horarios.id,
                 seccion: secciones.nombre,
                 seccionId: horarios.seccionId,
                 grado: secciones.grado,
                 materia: materias.nombre,
+                docente: usuarios.nombre,
                 horaInicio: horarios.horaInicio,
                 horaFin: horarios.horaFin
             })
             .from(horarios)
             .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
             .innerJoin(materias, eq(horarios.materiaId, materias.id))
+            .innerJoin(usuarios, eq(horarios.docenteId, usuarios.id))
             .where(
                 and(
-                    eq(horarios.docenteId, session.user.id),
                     eq(horarios.diaSemana, hoyDia as any),
                     sql`${horarios.horaInicio} <= ${currentTime}`,
-                    sql`${horarios.horaFin} >= ${currentTime}`
+                    sql`${horarios.horaFin} >= ${currentTime}`,
+                    isStaff ? sql`1=1` : eq(horarios.docenteId, session.user.id)
                 )
             )
             .limit(1);
+
+        const [claseActual] = await query;
 
         if (claseActual) {
             return {
@@ -794,6 +790,8 @@ export async function getClassesToday() {
     const today = new Date().toISOString().split('T')[0];
 
     try {
+        const isStaff = session.user.rol === "ADMINISTRADOR" || session.user.rol === "COORDINADOR";
+
         const misClases = await db
             .select({
                 id: horarios.id,
@@ -801,6 +799,7 @@ export async function getClassesToday() {
                 seccionId: horarios.seccionId,
                 grado: secciones.grado,
                 materia: materias.nombre,
+                docente: usuarios.nombre,
                 horaInicio: horarios.horaInicio,
                 horaFin: horarios.horaFin,
                 timeString: sql<string>`${horarios.horaInicio} || ' - ' || ${horarios.horaFin}`,
@@ -809,10 +808,11 @@ export async function getClassesToday() {
             .from(horarios)
             .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
             .innerJoin(materias, eq(horarios.materiaId, materias.id))
+            .innerJoin(usuarios, eq(horarios.docenteId, usuarios.id))
             .where(
                 and(
-                    eq(horarios.docenteId, session.user.id),
-                    eq(horarios.diaSemana, hoyDia as any)
+                    eq(horarios.diaSemana, hoyDia as any),
+                    isStaff ? sql`1=1` : eq(horarios.docenteId, session.user.id)
                 )
             )
             .orderBy(horarios.horaInicio);

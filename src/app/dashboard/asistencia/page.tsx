@@ -162,6 +162,14 @@ export default function AsistenciaPage() {
                                 <span className="bg-primary/5 text-primary px-2 py-0.5 rounded-md font-medium">{claseActual.grado} &quot;{claseActual.seccion}&quot;</span>
                                 <ChevronRight className="w-3 h-3 opacity-50" />
                                 <span className="font-medium text-foreground">{claseActual.materia} ({claseActual.timeString})</span>
+                                {(claseActual as any).docente && (
+                                    <>
+                                        <ChevronRight className="w-3 h-3 opacity-50" />
+                                        <span className="font-bold text-primary/70 italic text-[10px] uppercase tracking-tighter self-center ml-1">
+                                            Docente: {(claseActual as any).docente}
+                                        </span>
+                                    </>
+                                )}
                             </>
                         ) : (
                             <span className="font-medium text-muted-foreground">No hay clase activa en este momento</span>
@@ -183,7 +191,7 @@ export default function AsistenciaPage() {
                                 <option value="" disabled>Seleccionar clase...</option>
                                 {allClassesToday.map((c) => (
                                     <option key={c.id} value={c.id}>
-                                        {c.grado} "{c.seccion}" - {c.materia}
+                                        {c.grado} "{c.seccion}" - {c.materia} ({c.docente})
                                     </option>
                                 ))}
                             </select>
