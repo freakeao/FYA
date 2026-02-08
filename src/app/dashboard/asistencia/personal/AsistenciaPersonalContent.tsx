@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { UserCheck, UserX, Search, MessageSquare, AlertCircle, Calendar as CalendarIcon, X, Save, RotateCcw } from "lucide-react";
+import { UserCheck, UserX, Search, MessageSquare, AlertCircle, Calendar as CalendarIcon, X, Save, RotateCcw, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { upsertAsistenciaDocente, deleteAsistenciaDocente } from "@/lib/actions";
 import { toast } from "sonner";
@@ -181,149 +181,171 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                     const absenceTypeLabel = asistencia?.tipo?.replace(/_/g, " ") || "AUSENTE";
 
                     return (
-                        <div key={docente.id} className={cn(
-                            "premium-card p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border transition-all duration-300 relative overflow-hidden group",
-                            isPresent ? "bg-emerald-500/5 border-emerald-500/20" :
-                                isAbsent ? "bg-destructive/5 border-destructive/20" :
-                                    "bg-card/50 border-border/40"
-                        )}>
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-card border border-border/40 flex items-center justify-center font-black text-sm uppercase">
+                        <div key={docente.id} className="premium-card p-6 rounded-[2rem] border border-border/40 transition-all duration-300 relative overflow-hidden group flex flex-col gap-4">
+                            {/* Status Indicator Stripe - Matches Personal Management */}
+                            <div className={cn(
+                                "absolute top-0 left-0 w-full h-1.5 bg-emerald-500"
+                            )} />
+
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-4 min-w-0">
+                                    <div className={cn(
+                                        "w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg uppercase transition-colors shrink-0",
+                                        docente.usuario
+                                            ? "bg-emerald-500/10 text-emerald-600 group-hover:bg-emerald-500/20"
+                                            : "bg-accent text-muted-foreground group-hover:bg-accent/80"
+                                    )}>
                                         {docente.nombre[0]}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-sm font-black uppercase truncate">{docente.nombre}</p>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">@{docente.usuario}</p>
+                                        <p className="font-bold text-lg leading-tight line-clamp-1 truncate">{docente.nombre}</p>
+                                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            {docente.cedula ? `V-${docente.cedula}` : "Sin Cédula"}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    {isPending ? (
-                                        <div className="px-2 py-1 bg-amber-500/10 text-amber-600 rounded-lg text-[8px] font-black uppercase">Pendiente</div>
+                                <span className={cn(
+                                    "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-accent/50 text-muted-foreground border-border/50 shrink-0"
+                                )}>
+                                    {docente.rol}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-4 border-t border-border/40 gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                    {docente.usuario ? (
+                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md max-w-[120px] md:max-w-none">
+                                            <Shield className="w-3 h-3 shrink-0" />
+                                            <span className="truncate">@{docente.usuario}</span>
+                                        </div>
                                     ) : (
-                                        <>
+                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest bg-gray-50 px-2 py-1 rounded-md">
+                                            <UserX className="w-3 h-3 shrink-0" />
+                                            Sin Acceso
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                    {isPending ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                onClick={() => handlePresent(docente.id)}
+                                                disabled={loadingId === docente.id}
+                                                className="flex items-center gap-1.5 px-3 py-2 bg-accent/50 hover:bg-emerald-500/10 rounded-xl text-muted-foreground hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-500/20 group/edit"
+                                                title="Marcar Presente"
+                                            >
+                                                <UserCheck className="w-4 h-4" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Presente</span>
+                                            </button>
+                                            <button
+                                                onClick={() => openAbsenceModal(docente.id)}
+                                                disabled={loadingId === docente.id}
+                                                className="p-2 hover:bg-destructive/10 rounded-xl text-destructive transition-colors group/del"
+                                                title="Registrar Ausencia"
+                                            >
+                                                <UserX className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
                                             {isPresent ? (
-                                                <div className="px-2 py-1 bg-emerald-500/10 text-emerald-600 rounded-lg text-[8px] font-black uppercase">Presente</div>
+                                                <div className="px-2.5 py-1 bg-emerald-500/10 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">Presente</div>
                                             ) : (
-                                                <div className="px-2 py-1 bg-destructive/10 text-destructive rounded-lg text-[8px] font-black uppercase">{absenceTypeLabel}</div>
+                                                <div className="px-2.5 py-1 bg-destructive/10 text-destructive rounded-lg text-[10px] font-black uppercase tracking-widest border border-destructive/20">{absenceTypeLabel}</div>
                                             )}
                                             <button
                                                 onClick={() => handleReset(docente.id)}
-                                                className="p-1.5 hover:bg-accent rounded-lg text-muted-foreground transition-colors"
+                                                className="p-2 hover:bg-accent rounded-xl text-muted-foreground transition-all hover:rotate-180 duration-500"
                                                 title="Restablecer"
                                                 disabled={loadingId === docente.id}
                                             >
-                                                <RotateCcw className="w-3 h-3" />
+                                                <RotateCcw className="w-4 h-4" />
                                             </button>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2 md:gap-3">
-                                <button
-                                    disabled={loadingId === docente.id}
-                                    onClick={() => handlePresent(docente.id)}
-                                    className={cn(
-                                        "flex items-center justify-center gap-2 h-11 md:h-12 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95",
-                                        isPresent
-                                            ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
-                                            : "bg-accent/50 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600"
-                                    )}
-                                >
-                                    <UserCheck className="w-4 h-4" />
-                                    Presente
-                                </button>
-                                <button
-                                    disabled={loadingId === docente.id}
-                                    onClick={() => openAbsenceModal(docente.id)}
-                                    className={cn(
-                                        "flex items-center justify-center gap-2 h-11 md:h-12 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95",
-                                        isAbsent
-                                            ? "bg-destructive text-white shadow-lg shadow-destructive/20"
-                                            : "bg-accent/50 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                    )}
-                                >
-                                    <UserX className="w-4 h-4" />
-                                    Ausente
-                                </button>
                             </div>
                         </div>
                     );
                 })}
             </div>
 
-            {filteredDocentes.length === 0 && (
-                <div className="p-20 text-center space-y-4 premium-card rounded-[3rem] bg-accent/10">
-                    <div className="w-20 h-20 bg-card rounded-full flex items-center justify-center mx-auto border border-border/40 shadow-xl">
-                        <AlertCircle className="w-10 h-10 text-muted-foreground" />
+            {
+                filteredDocentes.length === 0 && (
+                    <div className="p-20 text-center space-y-4 premium-card rounded-[3rem] bg-accent/10">
+                        <div className="w-20 h-20 bg-card rounded-full flex items-center justify-center mx-auto border border-border/40 shadow-xl">
+                            <AlertCircle className="w-10 h-10 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-1">
+                            <p className="font-black text-xl uppercase tracking-tighter text-muted-foreground">No se encontraron docentes</p>
+                            <p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Asegúrese de haber registrado personal docente en el módulo de Usuarios.</p>
+                        </div>
                     </div>
-                    <div className="space-y-1">
-                        <p className="font-black text-xl uppercase tracking-tighter text-muted-foreground">No se encontraron docentes</p>
-                        <p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Asegúrese de haber registrado personal docente en el módulo de Usuarios.</p>
-                    </div>
-                </div>
-            )}
+                )
+            }
 
             {/* ABSENCE MODAL */}
-            {isAbsenceModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-card w-full max-w-md p-6 rounded-[2.5rem] shadow-2xl space-y-6 border border-border/40 m-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-xl font-black uppercase tracking-tight">Registrar Ausencia</h3>
-                            <button
-                                onClick={() => setIsAbsenceModalOpen(false)}
-                                className="p-2 hover:bg-accent rounded-full transition-colors"
-                            >
-                                <X className="w-5 h-5 text-muted-foreground" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground pl-1">Tipo de Ausencia</label>
-                                <select
-                                    className="w-full h-14 bg-accent/30 rounded-2xl px-4 text-sm font-bold border-none outline-none focus:ring-2 focus:ring-primary/20"
-                                    value={absenceType}
-                                    onChange={(e) => setAbsenceType(e.target.value)}
+            {
+                isAbsenceModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-card w-full max-w-md p-6 rounded-[2.5rem] shadow-2xl space-y-6 border border-border/40 m-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-xl font-black uppercase tracking-tight">Registrar Ausencia</h3>
+                                <button
+                                    onClick={() => setIsAbsenceModalOpen(false)}
+                                    className="p-2 hover:bg-accent rounded-full transition-colors"
                                 >
-                                    <option value="INJUSTIFICADA">Injustificada</option>
-                                    <option value="REPOSO_MEDICO">Reposo Médico</option>
-                                    <option value="PERMISO_PERSONAL">Permiso Personal</option>
-                                    <option value="VACACIONES">Vacaciones</option>
-                                    <option value="OTRO">Otro Motivo</option>
-                                </select>
+                                    <X className="w-5 h-5 text-muted-foreground" />
+                                </button>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground pl-1">Observaciones</label>
-                                <textarea
-                                    className="w-full h-32 bg-accent/30 rounded-2xl p-4 text-sm font-medium border-none outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-                                    placeholder="Detalles adicionales sobre la ausencia..."
-                                    value={observaciones}
-                                    onChange={(e) => setObservaciones(e.target.value)}
-                                />
-                            </div>
-                        </div>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground pl-1">Tipo de Ausencia</label>
+                                    <select
+                                        className="w-full h-14 bg-accent/30 rounded-2xl px-4 text-sm font-bold border-none outline-none focus:ring-2 focus:ring-primary/20"
+                                        value={absenceType}
+                                        onChange={(e) => setAbsenceType(e.target.value)}
+                                    >
+                                        <option value="INJUSTIFICADA">Injustificada</option>
+                                        <option value="REPOSO_MEDICO">Reposo Médico</option>
+                                        <option value="PERMISO_PERSONAL">Permiso Personal</option>
+                                        <option value="VACACIONES">Vacaciones</option>
+                                        <option value="OTRO">Otro Motivo</option>
+                                    </select>
+                                </div>
 
-                        <div className="flex gap-3 pt-2">
-                            <button
-                                onClick={() => setIsAbsenceModalOpen(false)}
-                                className="flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest bg-accent hover:bg-accent/80 transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={saveAbsence}
-                                className="flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-                            >
-                                <Save className="w-4 h-4" />
-                                Guardar Ausencia
-                            </button>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground pl-1">Observaciones</label>
+                                    <textarea
+                                        className="w-full h-32 bg-accent/30 rounded-2xl p-4 text-sm font-medium border-none outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                                        placeholder="Detalles adicionales sobre la ausencia..."
+                                        value={observaciones}
+                                        onChange={(e) => setObservaciones(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={() => setIsAbsenceModalOpen(false)}
+                                    className="flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest bg-accent hover:bg-accent/80 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={saveAbsence}
+                                    className="flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                                >
+                                    <Save className="w-4 h-4" />
+                                    Guardar Ausencia
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

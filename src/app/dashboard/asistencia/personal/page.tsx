@@ -14,7 +14,16 @@ export default async function AsistenciaPersonalPage({ searchParams }: { searchP
     }
 
     const { date } = await searchParams;
-    const fechaSeleccionada = date || new Date().toISOString().split('T')[0];
+
+    // Obtener fecha actual en Venezuela (America/Caracas)
+    const venezuelaDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Caracas',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(new Date());
+
+    const fechaSeleccionada = date || venezuelaDate;
 
     // Obtener datos en paralelo
     const [docentes, asistenciaHoy] = await Promise.all([
