@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Download, Calendar, Users, Briefcase, FileText, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getVenezuelaToday } from "@/lib/utils";
 import { getAsistenciaPersonalReport, getAsistenciaAlumnosReport } from "@/lib/actions";
 import { exportToExcel } from "@/lib/excel";
 import { toast } from "sonner";
@@ -12,7 +12,7 @@ interface ReportesContentProps {
 }
 
 export function ReportesContent({ userRole }: ReportesContentProps) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getVenezuelaToday();
     const [startDate, setStartDate] = useState(today);
     const [endDate, setEndDate] = useState(today);
     const [loading, setLoading] = useState(false);

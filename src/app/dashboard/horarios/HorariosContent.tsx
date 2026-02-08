@@ -14,7 +14,7 @@ import {
     ChevronRight,
     Filter
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatTime12h } from "@/lib/utils";
 import { deleteHorario } from "@/lib/actions";
 import { toast } from "sonner";
 import { DeleteConfirmModal } from "@/components/common/DeleteConfirmModal";
@@ -148,9 +148,9 @@ export function HorariosContent({ initialHorarios, secciones, materias, docentes
                                 <div className="flex items-center gap-2 bg-accent/30 p-3 rounded-xl border border-border/20">
                                     <Clock className="w-4 h-4 text-primary" />
                                     <div className="flex items-center gap-1">
-                                        <span className="text-xs font-black tracking-tighter">{h.horaInicio?.substring(0, 5)}</span>
+                                        <span className="text-xs font-black tracking-tighter">{formatTime12h(h.horaInicio)}</span>
                                         <span className="text-[10px] text-muted-foreground font-bold">a</span>
-                                        <span className="text-xs font-black tracking-tighter">{h.horaFin?.substring(0, 5)}</span>
+                                        <span className="text-xs font-black tracking-tighter">{formatTime12h(h.horaFin)}</span>
                                     </div>
                                 </div>
 

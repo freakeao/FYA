@@ -6,7 +6,7 @@ import {
     MessageSquare,
     AlertCircle
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatTime12h } from "@/lib/utils";
 
 interface DiarioDetalleProps {
     clase?: any;
@@ -41,7 +41,7 @@ export function DiarioDetalle({ clase, tema, setTema, incidencias, setIncidencia
                         <input
                             type="text"
                             placeholder="7:00 - 8:20"
-                            value={clase ? clase.timeString : undefined}
+                            value={clase ? `${formatTime12h(clase.horaInicio)} - ${formatTime12h(clase.horaFin)}` : undefined}
                             readOnly={!!clase}
                             className={cn(
                                 "h-14 w-full bg-accent/30 border-2 border-transparent focus:border-primary/20 rounded-2xl px-6 text-sm font-bold outline-none transition-all",

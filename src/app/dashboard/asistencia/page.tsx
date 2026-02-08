@@ -20,7 +20,7 @@ import { NumberInput } from "@/components/common/NumberInput";
 import { toast } from "sonner";
 import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia, getClassesByDate } from "@/lib/actions";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, getVenezuelaToday } from "@/lib/utils";
 
 interface ClaseActual {
     id: string;
@@ -48,16 +48,7 @@ export default function AsistenciaPage() {
     const [mounted, setMounted] = useState(false);
 
     // Date State
-    const [date, setDate] = useState(() => {
-        // Initialize with today in YYYY-MM-DD format
-        const now = new Date();
-        return new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'America/Caracas',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        }).format(now);
-    });
+    const [date, setDate] = useState(() => getVenezuelaToday());
 
     const [h, setH] = useState(0);
     const [v, setV] = useState(0);
