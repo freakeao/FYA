@@ -159,7 +159,7 @@ export async function registrarAsistencia(data: {
     cantidadH: number;
     cantidadV: number;
     cantidadT: number;
-    inasistencias: string[]; // IDs de alumnos
+    inasistencias: { estudianteId: string; observacion?: string }[]; // Updated structure
 }) {
     const [registro] = await db.insert(registrosAsistencia).values({
         horarioId: data.horarioId,
@@ -173,9 +173,10 @@ export async function registrarAsistencia(data: {
 
     if (data.inasistencias.length > 0) {
         await db.insert(inasistenciasAlumnos).values(
-            data.inasistencias.map(estudianteId => ({
+            data.inasistencias.map(ina => ({
                 registroId: registro.id,
-                estudianteId: estudianteId,
+                estudianteId: ina.estudianteId,
+                observacion: ina.observacion,
             }))
         );
     }

@@ -70,7 +70,7 @@ export function DiarioDetalle({ clase, tema, setTema, incidencias, setIncidencia
                 <div className="space-y-3">
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                         <MessageSquare className="w-4 h-4" />
-                        Temática Tratada
+                        Nombre de la Sesión
                     </label>
                     <textarea
                         placeholder="Descripción breve de lo visto hoy..."

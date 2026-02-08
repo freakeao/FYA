@@ -65,6 +65,7 @@ export const inasistenciasAlumnos = pgTable("inasistencias_alumnos", {
   id: uuid("id").primaryKey().defaultRandom(),
   registroId: uuid("registro_id").references(() => registrosAsistencia.id, { onDelete: "cascade" }).notNull(),
   estudianteId: uuid("estudiante_id").references(() => estudiantes.id, { onDelete: "cascade" }).notNull(),
+  observacion: text("observacion"),
 });
 
 export const asistenciaDocentes = pgTable("asistencia_docentes", {

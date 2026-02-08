@@ -70,7 +70,7 @@ export default function AsistenciaPage() {
     // Form States
     const [tema, setTema] = useState("");
     const [incidencias, setIncidencias] = useState("");
-    const [inasistentes, setInasistentes] = useState<string[]>([]);
+    const [inasistencias, setInasistencias] = useState<Record<string, string>>({});
 
     useEffect(() => {
         setMounted(true);
@@ -128,7 +128,7 @@ export default function AsistenciaPage() {
 
     const handleClassSelected = (clase: any) => {
         setClaseActual(clase);
-        setInasistentes([]); // Reset inasistencias when class changes
+        setInasistencias({}); // Reset inasistencias when class changes
         setTema("");
         setIncidencias("");
         if (clase?.seccionId) {
@@ -150,16 +150,30 @@ export default function AsistenciaPage() {
     // Derived state (memoized)
     const stats = useMemo(() => {
         if (estudiantes.length === 0) return { h: 0, v: 0, t: 0 };
-        const presentes = estudiantes.filter(e => !inasistentes.includes(e.id));
+        const inasistentesIds = Object.keys(inasistencias);
+        const presentes = estudiantes.filter(e => !inasistentesIds.includes(e.id));
         const hembras = presentes.filter(e => e.genero === "HEMBRA").length;
         const varones = presentes.filter(e => e.genero === "VARON").length;
         return { h: hembras, v: varones, t: hembras + varones };
-    }, [estudiantes, inasistentes]);
+    }, [estudiantes, inasistencias]);
 
     const toggleInasistente = (id: string) => {
-        setInasistentes(prev =>
-            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-        );
+        setInasistencias(prev => {
+            const next = { ...prev };
+            if (next[id] !== undefined) {
+                delete next[id];
+            } else {
+                next[id] = "";
+            }
+            return next;
+        });
+    };
+
+    const updateInasistenciaNota = (id: string, nota: string) => {
+        setInasistencias(prev => ({
+            ...prev,
+            [id]: nota
+        }));
     };
 
     const handleFinalizarRegistro = async () => {
@@ -183,13 +197,16 @@ export default function AsistenciaPage() {
                 cantidadH: stats.h,
                 cantidadV: stats.v,
                 cantidadT: stats.t,
-                inasistencias: inasistentes
+                inasistencias: Object.entries(inasistencias).map(([estudianteId, observacion]) => ({
+                    estudianteId,
+                    observacion
+                }))
             });
             toast.success("Asistencia registrada correctamente");
 
             // Refund fetching to update status
             refreshClassData(date);
-            setClaseActual(null); // Go back to list?
+            setInasistencias({}); // Go back to list?
 
         } catch (error) {
             toast.error("Error al registrar asistencia");
@@ -341,8 +358,9 @@ export default function AsistenciaPage() {
                     <div className="lg:col-span-4 space-y-6">
                         <StudentList
                             estudiantes={estudiantes}
-                            inasistentes={inasistentes}
+                            inasistencias={inasistencias}
                             onToggle={toggleInasistente}
+                            onUpdateNota={updateInasistenciaNota}
                             loading={loading}
                             onSubmit={handleFinalizarRegistro}
                             claseActual={claseActual}
