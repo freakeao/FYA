@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/db";
-import { usuarios, asistenciaDocentes } from "@/lib/db/schema";
+import { usuarios, asistenciaDocentes, horarios } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
@@ -25,9 +25,30 @@ export default async function AsistenciaPersonalPage({ searchParams }: { searchP
 
     const fechaSeleccionada = date || venezuelaDate;
 
+    // Calcular día de la semana de la fecha seleccionada
+    const selectedDateObj = new Date(fechaSeleccionada + 'T12:00:00');
+    const diaSemanaNum = selectedDateObj.getDay();
+    const diaSemanaMap: Record<number, string> = {
+        0: "DOMINGO", 1: "LUNES", 2: "MARTES",
+        3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
+    };
+    const diaSemana = diaSemanaMap[diaSemanaNum];
+
     // Obtener datos en paralelo
-    const [docentes, asistenciaHoy] = await Promise.all([
-        db.select().from(usuarios).where(eq(usuarios.rol, "DOCENTE")),
+    const [personalConHorarios, asistenciaHoy] = await Promise.all([
+        // Solo personal con horarios programados para el día de la semana seleccionado
+        db
+            .selectDistinct({
+                id: usuarios.id,
+                nombre: usuarios.nombre,
+                usuario: usuarios.usuario,
+                rol: usuarios.rol,
+                cedula: usuarios.cedula
+            })
+            .from(horarios)
+            .innerJoin(usuarios, eq(horarios.docenteId, usuarios.id))
+            .where(eq(horarios.diaSemana, diaSemana as any))
+            .orderBy(usuarios.nombre),
         db.select().from(asistenciaDocentes).where(eq(asistenciaDocentes.fecha, fechaSeleccionada))
     ]);
 
@@ -41,7 +62,7 @@ export default async function AsistenciaPersonalPage({ searchParams }: { searchP
             </header>
 
             <AsistenciaPersonalContent
-                docentes={docentes}
+                docentes={personalConHorarios}
                 asistenciaInicial={asistenciaHoy}
                 selectedDate={fechaSeleccionada}
             />

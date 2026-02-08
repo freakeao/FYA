@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db/db";
 import { secciones, materias, estudiantes, horarios, registrosAsistencia, inasistenciasAlumnos, usuarios, asistenciaDocentes } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { login, logout, getSession } from "./auth";
 import bcrypt from "bcryptjs";
@@ -584,17 +584,113 @@ export async function getDashboardData() {
 
     const today = new Date().toISOString().split('T')[0];
 
+    // Calcular día de la semana actual (para usar en múltiples consultas)
+    const now = new Date();
+    const options = { timeZone: "America/Caracas" };
+    const venezuelaDateStr = now.toLocaleString("en-US", options);
+    const venezuelaDate = new Date(venezuelaDateStr);
+    const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
+
     try {
-        // 1. Estadísticas Generales en Paralelo
-        const [totalEstudiantesRes, totalDocentesRes, inasistenciasAlumnosHoyRes, docentesAusentesHoy] = await Promise.all([
-            db.select({ count: sql<number>`count(*)` }).from(estudiantes).catch(() => [{ count: 0 }]),
-            db.select({ count: sql<number>`count(*)` }).from(usuarios).where(eq(usuarios.rol, "DOCENTE")).catch(() => [{ count: 0 }]),
+        // 1. Matrícula por género (total matriculados)
+        const [estudiantesHRes, estudiantesVRes] = await Promise.all([
+            db.select({ count: count() }).from(estudiantes).where(eq(estudiantes.genero, "VARON")).catch(() => [{ count: 0 }]),
+            db.select({ count: count() }).from(estudiantes).where(eq(estudiantes.genero, "HEMBRA")).catch(() => [{ count: 0 }])
+        ]);
+
+        const estudiantesHCount = Number(estudiantesHRes[0]?.count ?? 0);
+        const estudiantesVCount = Number(estudiantesVRes[0]?.count ?? 0);
+        const totalEstudiantesCount = estudiantesHCount + estudiantesVCount;
+
+        // 1.5. Estudiantes con clases HOY (basado en horarios de su sección)
+
+        const [estudiantesConClasesHoyHRes, estudiantesConClasesHoyVRes] = await Promise.all([
             db
-                .select({ count: sql<number>`count(*)` })
+                .selectDistinct({ id: estudiantes.id })
+                .from(estudiantes)
+                .innerJoin(secciones, eq(estudiantes.seccionId, secciones.id))
+                .innerJoin(horarios, eq(horarios.seccionId, secciones.id))
+                .where(and(
+                    eq(horarios.diaSemana, hoyDia as any),
+                    eq(estudiantes.genero, "VARON")
+                ))
+                .catch(() => []),
+            db
+                .selectDistinct({ id: estudiantes.id })
+                .from(estudiantes)
+                .innerJoin(secciones, eq(estudiantes.seccionId, secciones.id))
+                .innerJoin(horarios, eq(horarios.seccionId, secciones.id))
+                .where(and(
+                    eq(horarios.diaSemana, hoyDia as any),
+                    eq(estudiantes.genero, "HEMBRA")
+                ))
+                .catch(() => [])
+        ]);
+
+        const estudiantesConClasesHoyH = estudiantesConClasesHoyHRes.length;
+        const estudiantesConClasesHoyV = estudiantesConClasesHoyVRes.length;
+        const totalEstudiantesConClasesHoy = estudiantesConClasesHoyH + estudiantesConClasesHoyV;
+
+        // 2. Asistencia del día basada en reportes reales (con género)
+        const [presentesHoyRes] = await db
+            .select({
+                totalH: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadH}), 0)`,
+                totalV: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadV}), 0)`,
+                totalPresentes: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadT}), 0)`
+            })
+            .from(registrosAsistencia)
+            .where(eq(registrosAsistencia.fecha, today))
+            .catch(() => [{ totalH: 0, totalV: 0, totalPresentes: 0 }]);
+
+        const presentesH = Number(presentesHoyRes?.totalH ?? 0);
+        const presentesV = Number(presentesHoyRes?.totalV ?? 0);
+        const presentesTotal = Number(presentesHoyRes?.totalPresentes ?? 0);
+
+        // 3. Inasistencias por género
+        const [inasistenciasHRes, inasistenciasVRes] = await Promise.all([
+            db
+                .select({ count: count() })
                 .from(inasistenciasAlumnos)
+                .innerJoin(estudiantes, eq(inasistenciasAlumnos.estudianteId, estudiantes.id))
                 .innerJoin(registrosAsistencia, eq(inasistenciasAlumnos.registroId, registrosAsistencia.id))
-                .where(eq(registrosAsistencia.fecha, today))
+                .where(and(
+                    eq(registrosAsistencia.fecha, today),
+                    eq(estudiantes.genero, "VARON")
+                ))
                 .catch(() => [{ count: 0 }]),
+            db
+                .select({ count: count() })
+                .from(inasistenciasAlumnos)
+                .innerJoin(estudiantes, eq(inasistenciasAlumnos.estudianteId, estudiantes.id))
+                .innerJoin(registrosAsistencia, eq(inasistenciasAlumnos.registroId, registrosAsistencia.id))
+                .where(and(
+                    eq(registrosAsistencia.fecha, today),
+                    eq(estudiantes.genero, "HEMBRA")
+                ))
+                .catch(() => [{ count: 0 }])
+        ]);
+
+        const ausentesH = Number(inasistenciasHRes[0]?.count ?? 0);
+        const ausentesV = Number(inasistenciasVRes[0]?.count ?? 0);
+        const ausentesTotal = ausentesH + ausentesV;
+
+        // 4. Docentes que reportaron hoy (basado en día de la semana)
+
+        const [docentesConClasesHoyRes, docentesReportaronRes, docentesAusentesHoy] = await Promise.all([
+            // Contar docentes únicos que tienen clases programadas HOY (según día de la semana)
+            db
+                .selectDistinct({ docenteId: horarios.docenteId })
+                .from(horarios)
+                .where(eq(horarios.diaSemana, hoyDia as any))
+                .catch(() => []),
+            // Contar docentes únicos que reportaron asistencia HOY
+            db
+                .selectDistinct({ docenteId: horarios.docenteId })
+                .from(registrosAsistencia)
+                .innerJoin(horarios, eq(registrosAsistencia.horarioId, horarios.id))
+                .where(eq(registrosAsistencia.fecha, today))
+                .catch(() => []),
+            // Docentes ausentes HOY
             db
                 .select({
                     nombre: usuarios.nombre,
@@ -611,16 +707,17 @@ export async function getDashboardData() {
                 .catch(() => [])
         ]);
 
-        const totalEstudiantesCount = totalEstudiantesRes[0]?.count ?? 0;
-        const totalDocentesCount = totalDocentesRes[0]?.count ?? 0;
-        const inasistenciasAlumnosCount = inasistenciasAlumnosHoyRes[0]?.count ?? 0;
+        const totalDocentesConClasesHoy = docentesConClasesHoyRes.length;
+        const docentesReportaronCount = docentesReportaronRes.length;
+        const docentesSinReporteCount = totalDocentesConClasesHoy - docentesReportaronCount;
 
-        const now = new Date();
-        const options = { timeZone: "America/Caracas" };
-        const venezuelaDateStr = now.toLocaleString("en-US", options);
-        const venezuelaDate = new Date(venezuelaDateStr);
-        const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
+        // 5. Calcular porcentaje de asistencia basado en reportes reales
+        // Usamos estudiantes con clases HOY como denominador, no total matriculados
+        const asistenciaPorcentaje = totalEstudiantesConClasesHoy > 0 && presentesTotal > 0
+            ? ((presentesTotal / totalEstudiantesConClasesHoy) * 100).toFixed(1) + "%"
+            : "0%";
 
+        // 6. Mis clases (para docentes) - reutilizamos hoyDia calculado arriba
         let misClases: any[] = [];
         if (session.user.id && (session.user.rol === "DOCENTE" || session.user.rol === "ADMINISTRATIVO" || session.user.rol === "OBRERO" || session.user.rol === "COORDINADOR")) {
             misClases = await db
@@ -647,13 +744,33 @@ export async function getDashboardData() {
 
         return {
             stats: {
-                totalEstudiantes: totalEstudiantesCount,
-                totalDocentes: totalDocentesCount,
-                inasistenciasAlumnos: inasistenciasAlumnosCount,
-                inasistenciasPersonal: docentesAusentesHoy.length,
-                asistenciaPorcentaje: totalEstudiantesCount > 0
-                    ? (((totalEstudiantesCount - inasistenciasAlumnosCount) / totalEstudiantesCount) * 100).toFixed(1) + "%"
-                    : "0%"
+                matricula: {
+                    total: totalEstudiantesCount,
+                    hombres: estudiantesHCount,
+                    mujeres: estudiantesVCount
+                },
+                asistenciaHoy: {
+                    presentes: presentesTotal,
+                    presentesH: presentesH,
+                    presentesV: presentesV,
+                    ausentes: ausentesTotal,
+                    ausentesH: ausentesH,
+                    ausentesV: ausentesV,
+                    porcentaje: asistenciaPorcentaje,
+                    // Estudiantes con clases HOY (para mostrar denominador correcto)
+                    totalConClasesHoy: totalEstudiantesConClasesHoy,
+                    conClasesHoyH: estudiantesConClasesHoyH,
+                    conClasesHoyV: estudiantesConClasesHoyV
+                },
+                reporteDocentes: {
+                    totalDocentes: totalDocentesConClasesHoy,
+                    docentesReportaron: docentesReportaronCount,
+                    docentesSinReporte: docentesSinReporteCount,
+                    porcentajeReporte: totalDocentesConClasesHoy > 0
+                        ? ((docentesReportaronCount / totalDocentesConClasesHoy) * 100).toFixed(1) + "%"
+                        : "0%"
+                },
+                inasistenciasPersonal: docentesAusentesHoy.length
             },
             docentesAusentes: docentesAusentesHoy,
             misClases
@@ -661,7 +778,12 @@ export async function getDashboardData() {
     } catch (error) {
         console.error("Dashboard data error:", error);
         return {
-            stats: { totalEstudiantes: 0, totalDocentes: 0, inasistenciasAlumnos: 0, inasistenciasPersonal: 0, asistenciaPorcentaje: "0%" },
+            stats: {
+                matricula: { total: 0, hombres: 0, mujeres: 0 },
+                asistenciaHoy: { presentes: 0, presentesH: 0, presentesV: 0, ausentes: 0, ausentesH: 0, ausentesV: 0, porcentaje: "0%" },
+                reporteDocentes: { totalDocentes: 0, docentesReportaron: 0, docentesSinReporte: 0, porcentajeReporte: "0%" },
+                inasistenciasPersonal: 0
+            },
             docentesAusentes: [],
             misClases: []
         };

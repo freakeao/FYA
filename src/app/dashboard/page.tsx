@@ -5,7 +5,8 @@ import {
     UserMinus,
     GraduationCap,
     ArrowUpRight,
-    TrendingUp
+    TrendingUp,
+    ClipboardCheck
 } from "lucide-react";
 
 import { getDashboardData } from "@/lib/actions";
@@ -44,34 +45,35 @@ export default async function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatsCard
                     title="Total Alumnos"
-                    value={data.stats.totalEstudiantes.toString()}
+                    value={data.stats.matricula.total.toString()}
                     description="Matrícula activa"
                     icon={Users}
-                    color="primary" // Red
+                    color="primary"
+                    breakdown={`👨 H: ${data.stats.matricula.hombres}  |  👩 V: ${data.stats.matricula.mujeres}`}
                 />
                 <StatsCard
                     title="Asistencia Hoy"
-                    value={data.stats.asistenciaPorcentaje}
-                    description="Alumnos en aula"
+                    value={data.stats.asistenciaHoy.porcentaje}
+                    description={`${data.stats.asistenciaHoy.presentes} de ${data.stats.asistenciaHoy.totalConClasesHoy} con clases`}
                     icon={UserCheck}
-                    trend={data.stats.asistenciaPorcentaje !== "100%" ? "- " + data.stats.inasistenciasAlumnos : ""}
-                    trendNegative
-                    color="secondary" // Peach
+                    color="secondary"
+                    breakdown={`👨 H: ${data.stats.asistenciaHoy.presentesH}/${data.stats.asistenciaHoy.conClasesHoyH}  👩 V: ${data.stats.asistenciaHoy.presentesV}/${data.stats.asistenciaHoy.conClasesHoyV}`}
                 />
                 <StatsCard
                     title="Inasistencias"
-                    value={data.stats.inasistenciasAlumnos.toString()}
+                    value={data.stats.asistenciaHoy.ausentes.toString()}
                     description="Alumnos ausentes"
                     icon={UserMinus}
-                    trendNegative={data.stats.inasistenciasAlumnos > 0}
                     color="primary"
+                    breakdown={`👨 H: ${data.stats.asistenciaHoy.ausentesH}  |  👩 V: ${data.stats.asistenciaHoy.ausentesV}`}
                 />
                 <StatsCard
-                    title="Docentes"
-                    value={data.stats.totalDocentes.toString()}
-                    description={data.stats.inasistenciasPersonal > 0 ? `${data.stats.inasistenciasPersonal} ausentes hoy` : "Todos presentes"}
-                    icon={GraduationCap}
+                    title="Reporte Docentes"
+                    value={`${data.stats.reporteDocentes.docentesReportaron}/${data.stats.reporteDocentes.totalDocentes}`}
+                    description="Docentes reportaron"
+                    icon={ClipboardCheck}
                     color="secondary"
+                    breakdown={`✓ Reportaron: ${data.stats.reporteDocentes.docentesReportaron} | ✗ Sin reporte: ${data.stats.reporteDocentes.docentesSinReporte}`}
                 />
             </div>
 
@@ -187,7 +189,7 @@ export default async function DashboardPage() {
     );
 }
 
-function StatsCard({ title, value, description, icon: Icon, trend, trendNegative, color = "primary" }: any) {
+function StatsCard({ title, value, description, icon: Icon, trend, trendNegative, color = "primary", breakdown }: any) {
     const isPrimary = color === "primary";
 
     return (
@@ -226,6 +228,11 @@ function StatsCard({ title, value, description, icon: Icon, trend, trendNegative
                     isPrimary ? "text-foreground" : "text-foreground"
                 )}>{value}</p>
                 <p className="text-xs text-muted-foreground font-medium">{description}</p>
+                {breakdown && (
+                    <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mt-2 pt-2 border-t border-border/30">
+                        {breakdown}
+                    </p>
+                )}
             </div>
         </div>
     );
