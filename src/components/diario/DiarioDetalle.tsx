@@ -26,7 +26,16 @@ export function DiarioDetalle({ clase, tema, setTema, incidencias, setIncidencia
                             <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                             Detalle de la Clase
                         </h3>
-                        <p className="text-[10px] md:text-xs text-muted-foreground mt-1">Registre el tema desarrollado.</p>
+                        {clase?.estado === "Completado" ? (
+                            <div className="flex items-center gap-1.5 mt-1">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[8px] font-black uppercase tracking-widest border border-amber-500/20">
+                                    Modo Edición
+                                </span>
+                                <p className="text-[10px] md:text-xs text-muted-foreground">Actualice el tema o las incidencias si es necesario.</p>
+                            </div>
+                        ) : (
+                            <p className="text-[10px] md:text-xs text-muted-foreground mt-1">Registre el tema desarrollado.</p>
+                        )}
                     </div>
                 </div>
             </div>

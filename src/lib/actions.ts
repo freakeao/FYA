@@ -159,22 +159,52 @@ export async function registrarAsistencia(data: {
     cantidadH: number;
     cantidadV: number;
     cantidadT: number;
-    inasistencias: { estudianteId: string; observacion?: string }[]; // Updated structure
+    inasistencias: { estudianteId: string; observacion?: string }[];
 }) {
-    const [registro] = await db.insert(registrosAsistencia).values({
-        horarioId: data.horarioId,
-        fecha: data.fecha,
-        tema: data.tema,
-        incidencias: data.incidencias,
-        cantidadH: data.cantidadH,
-        cantidadV: data.cantidadV,
-        cantidadT: data.cantidadT,
-    }).returning();
+    // Check if record already exists for this date and schedule
+    const existing = await db.select()
+        .from(registrosAsistencia)
+        .where(
+            and(
+                eq(registrosAsistencia.horarioId, data.horarioId),
+                eq(registrosAsistencia.fecha, data.fecha)
+            )
+        )
+        .limit(1);
+
+    let registroId: string;
+
+    if (existing.length > 0) {
+        // Update existing record
+        registroId = existing[0].id;
+        await db.update(registrosAsistencia).set({
+            tema: data.tema,
+            incidencias: data.incidencias,
+            cantidadH: data.cantidadH,
+            cantidadV: data.cantidadV,
+            cantidadT: data.cantidadT,
+        }).where(eq(registrosAsistencia.id, registroId));
+
+        // Delete old inasistencias to replace them
+        await db.delete(inasistenciasAlumnos).where(eq(inasistenciasAlumnos.registroId, registroId));
+    } else {
+        // Create new record
+        const [registro] = await db.insert(registrosAsistencia).values({
+            horarioId: data.horarioId,
+            fecha: data.fecha,
+            tema: data.tema,
+            incidencias: data.incidencias,
+            cantidadH: data.cantidadH,
+            cantidadV: data.cantidadV,
+            cantidadT: data.cantidadT,
+        }).returning();
+        registroId = registro.id;
+    }
 
     if (data.inasistencias.length > 0) {
         await db.insert(inasistenciasAlumnos).values(
             data.inasistencias.map(ina => ({
-                registroId: registro.id,
+                registroId: registroId,
                 estudianteId: ina.estudianteId,
                 observacion: ina.observacion,
             }))
@@ -182,6 +212,25 @@ export async function registrarAsistencia(data: {
     }
 
     revalidatePath("/dashboard/asistencia");
+}
+
+export async function getAsistenciaByClaseYFecha(horarioId: string, fecha: string) {
+    try {
+        const registro = await db.query.registrosAsistencia.findFirst({
+            where: and(
+                eq(registrosAsistencia.horarioId, horarioId),
+                eq(registrosAsistencia.fecha, fecha)
+            ),
+            with: {
+                inasistencias: true
+            }
+        });
+
+        return registro || null;
+    } catch (error) {
+        console.error("Error in getAsistenciaByClaseYFecha:", error);
+        return null;
+    }
 }
 
 // --- AUTENTICACION ---
@@ -229,6 +278,10 @@ export async function loginUser(formData: FormData) {
 export async function logoutUser() {
     await logout();
     redirect("/login");
+}
+
+export async function getUserSession() {
+    return await getSession();
 }
 
 export async function getUsuarios() {
@@ -718,14 +771,18 @@ export async function getDashboardData() {
             ? ((presentesTotal / totalEstudiantesConClasesHoy) * 100).toFixed(1) + "%"
             : "0%";
 
-        // 6. Mis clases (para docentes) - reutilizamos hoyDia calculado arriba
-        let misClases: any[] = [];
-        if (session.user.id && (session.user.rol === "DOCENTE" || session.user.rol === "ADMINISTRATIVO" || session.user.rol === "OBRERO" || session.user.rol === "COORDINADOR")) {
-            misClases = await db
+        // 6. Actividad de Clases (Todas para ADMIN/COORD, Mis Clases para DOCENTE)
+        let clasesHoy: any[] = [];
+        const isAdminOrCoord = session.user.rol === "ADMINISTRADOR" || session.user.rol === "COORDINADOR";
+
+        if (session.user.id) {
+            const query = db
                 .select({
                     id: horarios.id,
                     seccion: secciones.nombre,
+                    grado: secciones.grado,
                     materia: materias.nombre,
+                    docente: usuarios.nombre,
                     descripcion: horarios.descripcion,
                     hora: sql<string>`${horarios.horaInicio} || ' - ' || ${horarios.horaFin}`,
                     estado: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM ${registrosAsistencia} WHERE ${registrosAsistencia.horarioId} = ${horarios.id} AND ${registrosAsistencia.fecha} = ${today}) THEN 'Completado' ELSE 'Pendiente' END`
@@ -733,14 +790,17 @@ export async function getDashboardData() {
                 .from(horarios)
                 .leftJoin(secciones, eq(horarios.seccionId, secciones.id))
                 .leftJoin(materias, eq(horarios.materiaId, materias.id))
+                .leftJoin(usuarios, eq(horarios.docenteId, usuarios.id))
                 .where(
                     and(
-                        eq(horarios.docenteId, session.user.id),
-                        eq(horarios.diaSemana, hoyDia as any)
+                        eq(horarios.diaSemana, hoyDia as any),
+                        // If not Admin/Coord, filter by teacher ID
+                        isAdminOrCoord ? sql`1=1` : eq(horarios.docenteId, session.user.id)
                     )
                 )
-                .orderBy(horarios.horaInicio)
-                .catch(() => []);
+                .orderBy(horarios.horaInicio);
+
+            clasesHoy = await query.catch(() => []);
         }
 
         return {
@@ -758,7 +818,6 @@ export async function getDashboardData() {
                     ausentesH: ausentesH,
                     ausentesV: ausentesV,
                     porcentaje: asistenciaPorcentaje,
-                    // Estudiantes con clases HOY (para mostrar denominador correcto)
                     totalConClasesHoy: totalEstudiantesConClasesHoy,
                     conClasesHoyH: estudiantesConClasesHoyH,
                     conClasesHoyV: estudiantesConClasesHoyV
@@ -774,7 +833,7 @@ export async function getDashboardData() {
                 inasistenciasPersonal: docentesAusentesHoy.length
             },
             docentesAusentes: docentesAusentesHoy,
-            misClases
+            clasesHoy
         };
     } catch (error) {
         console.error("Dashboard data error:", error);

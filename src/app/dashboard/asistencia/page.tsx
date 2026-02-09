@@ -18,7 +18,7 @@ import { StudentList } from "@/components/diario/StudentList";
 import { NumberInput } from "@/components/common/NumberInput";
 
 import { toast } from "sonner";
-import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia, getClassesByDate } from "@/lib/actions";
+import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia, getClassesByDate, getUserSession, getAsistenciaByClaseYFecha } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { cn, getVenezuelaToday } from "@/lib/utils";
 
@@ -57,6 +57,7 @@ export default function AsistenciaPage() {
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [loading, setLoading] = useState(false);
     const [allClassesToday, setAllClassesToday] = useState<any[]>([]);
+    const [userRole, setUserRole] = useState<string | null>(null);
 
     // Form States
     const [tema, setTema] = useState("");
@@ -65,10 +66,16 @@ export default function AsistenciaPage() {
 
     useEffect(() => {
         setMounted(true);
+        // Fetch session
+        getUserSession().then(session => {
+            if (session?.user?.rol) {
+                setUserRole(session.user.rol);
+            }
+        });
         refreshClassData(date);
     }, [date]);
 
-    async function refreshClassData(selectedDate: string) {
+    async function refreshClassData(selectedDate: string, silent: boolean = false) {
         setLoading(true);
         try {
             // First, try to see if there is an ACTIVE class right now (only if date is today)
@@ -81,14 +88,23 @@ export default function AsistenciaPage() {
             // Logic: If date is TODAY, maybe auto-select current class?
             // Only if user hasn't manually navigated away or deselected.
             // For now, let's auto-select only if it's the initial load.
+            // RESTRICTION: Only auto-open for DOCENTE role. Admins/Coordinators see the list.
             if (!claseActual) {
                 const now = new Date();
                 const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
 
-                if (selectedDate === todayStr) {
-                    const current = await getCurrentClass();
-                    if (current) {
-                        handleClassSelected(current);
+                if (selectedDate === todayStr && !silent) {
+                    // Use unique ID to prevent duplication
+                    // And sessionStorage to show only once per session
+                    const guidedShown = sessionStorage.getItem('asistencia_guided_shown');
+
+                    if (!guidedShown) {
+                        toast.info("Seleccione una clase para registrar o ver asistencia.", {
+                            id: "asistencia-guide",
+                            description: "Se muestran todas las clases programadas para hoy.",
+                            duration: 5000,
+                        });
+                        sessionStorage.setItem('asistencia_guided_shown', 'true');
                     }
                 }
             }
@@ -119,22 +135,38 @@ export default function AsistenciaPage() {
 
     const handleClassSelected = (clase: any) => {
         setClaseActual(clase);
-        setInasistencias({}); // Reset inasistencias when class changes
+        setInasistencias({}); // Reset initially
         setTema("");
         setIncidencias("");
+
         if (clase?.seccionId) {
+            setLoading(true);
+            // 1. Fetch Students
             getEstudiantesBySeccion(clase.seccionId).then((data) => {
                 setEstudiantes(data);
                 const hembras = data.filter((e: any) => e.genero === "HEMBRA").length;
                 const varones = data.filter((e: any) => e.genero === "VARON").length;
-
-                // If the class is already completed, we might want to fetch the existing attendance record...
-                // But for now, we assume we want to VIEW/EDIT if it allows? 
-                // Or just show stats? The requirement is to report if forgotten.
-
                 setH(hembras);
                 setV(varones);
-            });
+
+                // 2. After students, fetch attendance record if it exists
+                getAsistenciaByClaseYFecha(clase.id, date).then((registro) => {
+                    if (registro) {
+                        setTema(registro.tema || "");
+                        setIncidencias(registro.incidencias || "");
+
+                        // If it has inasistencias, map them
+                        const inasMap: Record<string, string> = {};
+                        if (registro.inasistencias) {
+                            registro.inasistencias.forEach((ina: any) => {
+                                inasMap[ina.estudianteId] = ina.observacion || "";
+                            });
+                        }
+                        setInasistencias(inasMap);
+                    }
+                    setLoading(false);
+                });
+            }).catch(() => setLoading(false));
         }
     };
 
@@ -195,9 +227,13 @@ export default function AsistenciaPage() {
             });
             toast.success("Asistencia registrada correctamente");
 
-            // Refund fetching to update status
-            refreshClassData(date);
-            setInasistencias({}); // Go back to list?
+            // Refresh fetching to update status in the list (silently to avoid guided toast)
+            refreshClassData(date, true);
+
+            // Update local claseActual status if it was success
+            setClaseActual(prev => prev ? { ...prev, estado: "Completado" } : null);
+
+            // setInasistencias({}); // REMOVED: Keep data visible after update
 
         } catch (error) {
             toast.error("Error al registrar asistencia");

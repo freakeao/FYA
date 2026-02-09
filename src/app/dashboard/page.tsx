@@ -12,6 +12,7 @@ import {
 import { getDashboardData } from "@/lib/actions";
 import { getSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { ClassCarousel } from "@/components/dashboard/ClassCarousel";
 
 const Icon = GraduationCap;
 
@@ -98,44 +99,7 @@ export default async function DashboardPage() {
                     </div>
 
                     <div className="space-y-4 flex-1">
-                        {userRole === "DOCENTE" ? (
-                            data.misClases.length > 0 ? (
-                                data.misClases.map((clase: any) => (
-                                    <Link
-                                        key={clase.id}
-                                        href={`/dashboard/asistencia`}
-                                        className="flex items-center justify-between p-4 rounded-2xl border border-border/40 hover:border-primary/30 hover:bg-primary/[0.02] transition-all group"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-accent flex flex-col items-center justify-center">
-                                                <Icon className="w-5 h-5 text-primary" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold uppercase tracking-tight">{clase.seccion}</p>
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">{clase.materia} • {clase.hora}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className={cn(
-                                                "text-[8px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest",
-                                                clase.estado === "Completado" ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
-                                            )}>
-                                                {clase.estado}
-                                            </span>
-                                            <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                        </div>
-                                    </Link>
-                                ))
-                            ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border/40 rounded-3xl">
-                                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">No tienes clases programadas para hoy</p>
-                                </div>
-                            )
-                        ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border/40 rounded-3xl">
-                                <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Resumen de bloques en desarrollo</p>
-                            </div>
-                        )}
+                        <ClassCarousel classes={data.clasesHoy || []} />
                     </div>
                 </div>
 

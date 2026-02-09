@@ -105,7 +105,7 @@ export function StudentList({
                 )}
             >
                 <Save className={cn("w-5 h-5 transition-transform", !loading && "group-hover:rotate-12")} />
-                {loading ? "Registrando..." : "Finalizar Registro"}
+                {loading ? "Registrando..." : (claseActual?.estado === "Completado" ? "Actualizar Registro" : "Finalizar Registro")}
             </button>
         </div>
     );
