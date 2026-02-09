@@ -57,15 +57,30 @@ export function SeccionesContent({ initialSecciones, docentes }: SeccionesConten
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Toolbar */}
-            <div className="relative group max-w-md">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <input
-                    type="text"
-                    placeholder="Buscar sección o docente..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
-                />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="relative group max-w-md w-full">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <input
+                        type="text"
+                        placeholder="Buscar sección o docente..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
+                    />
+                </div>
+
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => {
+                            setEditingSeccion(null);
+                            setIsFormModalOpen(true);
+                        }}
+                        className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-4 rounded-3xl font-black text-sm uppercase tracking-widest hover:shadow-2xl hover:shadow-primary/30 transition-all active:scale-95 group shadow-lg shadow-primary/20"
+                    >
+                        <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                        Nueva Sección
+                    </button>
+                </div>
             </div>
 
             {/* Grid */}

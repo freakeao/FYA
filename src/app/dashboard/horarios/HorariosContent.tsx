@@ -64,32 +64,46 @@ export function HorariosContent({ initialHorarios, secciones, materias, docentes
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Day Selector and Search */}
             <div className="grid gap-6 md:grid-cols-12 items-end">
-                <div className="md:col-span-8 flex flex-wrap gap-2">
-                    {DIAS.map((dia) => (
-                        <button
-                            key={dia}
-                            onClick={() => router.push(`/dashboard/horarios?day=${dia}`)}
-                            className={cn(
-                                "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95",
-                                currentDay === dia
-                                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                    : "bg-accent/40 text-muted-foreground hover:bg-accent"
-                            )}
-                        >
-                            {dia}
-                        </button>
-                    ))}
+                <div className="md:col-span-8 flex flex-wrap items-center gap-4">
+                    <div className="flex flex-wrap gap-2">
+                        {DIAS.map((dia) => (
+                            <button
+                                key={dia}
+                                onClick={() => router.push(`/dashboard/horarios?day=${dia}`)}
+                                className={cn(
+                                    "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95",
+                                    currentDay === dia
+                                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                                        : "bg-accent/40 text-muted-foreground hover:bg-accent"
+                                )}
+                            >
+                                {dia}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <div className="md:col-span-4 relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <input
-                        type="text"
-                        placeholder="Buscar materia, docente..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
-                    />
+                <div className="md:col-span-4 flex items-center gap-2">
+                    <div className="relative group flex-1">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Buscar materia, docente..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
+                        />
+                    </div>
+                    <button
+                        onClick={() => {
+                            setEditingHorario(null);
+                            setIsFormModalOpen(true);
+                        }}
+                        className="flex items-center gap-2 bg-primary text-primary-foreground p-4 rounded-2xl font-black text-sm uppercase transition-all active:scale-95 group shadow-lg shadow-primary/20"
+                        title="Crear Horario"
+                    >
+                        <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                    </button>
                 </div>
             </div>
 

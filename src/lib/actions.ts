@@ -88,6 +88,24 @@ export async function updateMateria(id: string, data: { nombre: string; codigo?:
     }
 }
 
+export async function bulkCreateMaterias(data: { nombre: string; codigo?: string; color?: string }[]) {
+    try {
+        if (data.length === 0) return { success: false, error: "No hay datos para cargar" };
+
+        await db.insert(materias).values(data.map(m => ({
+            nombre: m.nombre,
+            codigo: m.codigo || null,
+            color: m.color || "bg-primary"
+        })));
+
+        revalidatePath("/dashboard/materias");
+        return { success: true, message: `${data.length} materias cargadas correctamente` };
+    } catch (error) {
+        console.error("Bulk create error:", error);
+        return { success: false, error: "Error al cargar materias de forma masiva" };
+    }
+}
+
 // --- ESTUDIANTES ---
 export async function getEstudiantesBySeccion(seccionId: string) {
     return await db.select().from(estudiantes)

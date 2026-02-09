@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { DeleteConfirmModal } from "@/components/common/DeleteConfirmModal";
 import { MateriaModal } from "./MateriaModal";
 import { Plus } from "lucide-react";
+import { BulkMateriaModal } from "./BulkMateriaModal";
 
 interface MateriasContentProps {
     initialMaterias: any[];
@@ -25,6 +26,7 @@ export function MateriasContent({ initialMaterias }: MateriasContentProps) {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [idToDelete, setIdToDelete] = useState<string | null>(null);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [editingMateria, setEditingMateria] = useState<any>(null);
 
 
@@ -63,7 +65,10 @@ export function MateriasContent({ initialMaterias }: MateriasContentProps) {
                 </div>
 
                 <div className="flex gap-2">
-                    <button className="flex items-center gap-2 bg-card border border-border/40 text-foreground px-6 py-4 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-accent transition-all active:scale-95 shadow-sm">
+                    <button
+                        onClick={() => setIsBulkModalOpen(true)}
+                        className="flex items-center gap-2 bg-card border border-border/40 text-foreground px-6 py-4 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-accent transition-all active:scale-95 shadow-sm"
+                    >
                         Asignación Masiva
                     </button>
                     <button
@@ -172,6 +177,11 @@ export function MateriasContent({ initialMaterias }: MateriasContentProps) {
                     setEditingMateria(null);
                 }}
                 editingMateria={editingMateria}
+            />
+
+            <BulkMateriaModal
+                isOpen={isBulkModalOpen}
+                onClose={() => setIsBulkModalOpen(false)}
             />
 
             <DeleteConfirmModal

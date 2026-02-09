@@ -30,12 +30,6 @@ export default async function GestionHorariosPage({ searchParams }: { searchPara
                     <p className="text-sm text-muted-foreground">Administre la carga académica de todas las secciones.</p>
                 </div>
 
-                <div className="flex gap-2">
-                    <button className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-4 rounded-3xl font-black text-sm uppercase tracking-widest hover:shadow-2xl hover:shadow-primary/30 transition-all active:scale-95 group">
-                        <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                        Crear Horario
-                    </button>
-                </div>
             </div>
 
             <HorariosContent
@@ -45,6 +39,6 @@ export default async function GestionHorariosPage({ searchParams }: { searchPara
                 docentes={docentes}
                 currentDay={currentDay}
             />
-        </div>
+        </div >
     );
 }
