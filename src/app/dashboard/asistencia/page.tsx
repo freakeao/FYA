@@ -20,7 +20,7 @@ import { NumberInput } from "@/components/common/NumberInput";
 import { toast } from "sonner";
 import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia, getClassesByDate, getUserSession, getAsistenciaByClaseYFecha } from "@/lib/actions";
 import { useRouter } from "next/navigation";
-import { cn, getVenezuelaToday } from "@/lib/utils";
+import { cn, getVenezuelaToday, formatTime12h } from "@/lib/utils";
 
 interface ClaseActual {
     id: string;
@@ -57,6 +57,7 @@ export default function AsistenciaPage() {
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [loading, setLoading] = useState(false);
     const [allClassesToday, setAllClassesToday] = useState<any[]>([]);
+    const [searchTerm, setSearchTerm] = useState("");
     const [userRole, setUserRole] = useState<string | null>(null);
 
     // Form States
@@ -397,65 +398,95 @@ export default function AsistenciaPage() {
             ) : (
                 // GRID VIEW (New Functionality)
                 <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-bold text-muted-foreground uppercase tracking-widest">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <h3 className="text-lg font-bold text-muted-foreground uppercase tracking-widest shrink-0">
                             Clases del día ({allClassesToday.length})
                         </h3>
+
+                        <div className="relative group max-w-sm w-full">
+                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Buscar por profesor, materia o sección..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-border/40 rounded-xl py-2 pl-9 pr-4 text-xs font-bold uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all"
+                            />
+                        </div>
                     </div>
 
-                    {allClassesToday.length === 0 ? (
+                    {allClassesToday.filter(clase => {
+                        if (!searchTerm.trim()) return true;
+                        const lowerSearch = searchTerm.toLowerCase();
+                        return (
+                            clase.docente?.toLowerCase().includes(lowerSearch) ||
+                            clase.materia?.toLowerCase().includes(lowerSearch) ||
+                            clase.seccion?.toLowerCase().includes(lowerSearch) ||
+                            clase.grado?.toLowerCase().includes(lowerSearch)
+                        );
+                    }).length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                             <Calendar className="w-12 h-12 mb-4 opacity-20" />
-                            <p>No hay clases programadas para este día.</p>
+                            <p>{searchTerm ? "No se encontraron clases con ese criterio." : "No hay clases programadas para este día."}</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {allClassesToday.map((clase) => (
-                                <button
-                                    key={clase.id}
-                                    onClick={() => handleClassSelected(clase)}
-                                    className="group relative flex flex-col items-start p-6 bg-card hover:bg-accent/50 border border-border/40 hover:border-primary/20 rounded-[2rem] transition-all duration-300 hover:shadow-lg text-left w-full"
-                                >
-                                    <div className="absolute top-6 right-6">
-                                        {clase.estado === 'Completado' ? (
-                                            <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                                        ) : (
-                                            <AlertCircle className="w-6 h-6 text-amber-500/50 group-hover:text-amber-500 transition-colors" />
-                                        )}
-                                    </div>
-
-                                    <div className="mb-4">
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest">
-                                            {clase.grado} "{clase.seccion}"
-                                        </span>
-                                    </div>
-
-                                    <h4 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">
-                                        {clase.materia}
-                                    </h4>
-                                    <p className="text-xs text-muted-foreground font-medium mb-6">
-                                        Docente: {clase.docente}
-                                    </p>
-
-                                    <div className="mt-auto w-full flex items-center justify-between pt-4 border-t border-border/40">
-                                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                                            <Clock className="w-3.5 h-3.5" />
-                                            {clase.horaInicio} - {clase.horaFin}
+                            {allClassesToday
+                                .filter(clase => {
+                                    if (!searchTerm.trim()) return true;
+                                    const lowerSearch = searchTerm.toLowerCase();
+                                    return (
+                                        clase.docente?.toLowerCase().includes(lowerSearch) ||
+                                        clase.materia?.toLowerCase().includes(lowerSearch) ||
+                                        clase.seccion?.toLowerCase().includes(lowerSearch) ||
+                                        clase.grado?.toLowerCase().includes(lowerSearch)
+                                    );
+                                })
+                                .map((clase) => (
+                                    <button
+                                        key={clase.id}
+                                        onClick={() => handleClassSelected(clase)}
+                                        className="group relative flex flex-col items-start p-6 bg-card hover:bg-accent/50 border border-border/40 hover:border-primary/20 rounded-[2rem] transition-all duration-300 hover:shadow-lg text-left w-full"
+                                    >
+                                        <div className="absolute top-6 right-6">
+                                            {clase.estado === 'Completado' ? (
+                                                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                                            ) : (
+                                                <AlertCircle className="w-6 h-6 text-amber-500/50 group-hover:text-amber-500 transition-colors" />
+                                            )}
                                         </div>
-                                        <div className={cn(
-                                            "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
-                                            clase.estado === 'Completado' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
-                                        )}>
-                                            {clase.estado || 'Pendiente'}
+
+                                        <div className="mb-4">
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest">
+                                                {clase.grado} "{clase.seccion}"
+                                            </span>
                                         </div>
-                                    </div>
-                                </button>
-                            ))}
+
+                                        <h4 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">
+                                            {clase.materia}
+                                        </h4>
+                                        <p className="text-xs text-muted-foreground font-medium mb-6">
+                                            Docente: {clase.docente}
+                                        </p>
+
+                                        <div className="mt-auto w-full flex items-center justify-between pt-4 border-t border-border/40">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                                                <Clock className="w-3.5 h-3.5" />
+                                                {formatTime12h(clase.horaInicio)} - {formatTime12h(clase.horaFin)}
+                                            </div>
+                                            <div className={cn(
+                                                "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
+                                                clase.estado === 'Completado' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                                            )}>
+                                                {clase.estado || 'Pendiente'}
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
                         </div>
                     )}
                 </div>
             )}
         </div>
     );
-
 }

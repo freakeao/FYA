@@ -81,10 +81,10 @@ export default async function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 {/* Section for Teachers: Their classes */}
                 <div className={cn(
-                    "premium-card p-8 rounded-[2rem] flex flex-col",
+                    "premium-card p-6 rounded-[2rem] flex flex-col h-[380px]",
                     userRole === "DOCENTE" ? "col-span-4" : "col-span-4"
                 )}>
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between mb-4">
                         <div>
                             <h3 className="font-bold text-xl uppercase tracking-tighter">
                                 {userRole === "DOCENTE" ? "Mis Clases de Hoy" : "Actividad de Clases"}
@@ -98,14 +98,14 @@ export default async function DashboardPage() {
                         </div>
                     </div>
 
-                    <div className="space-y-4 flex-1">
+                    <div className="space-y-4 flex-1 overflow-hidden">
                         <ClassCarousel classes={data.clasesHoy || []} />
                     </div>
                 </div>
 
                 {/* Section for Admin/Coord: Teacher absences */}
-                <div className="col-span-3 premium-card p-8 rounded-[2rem] flex flex-col">
-                    <div className="flex items-center justify-between mb-6">
+                <div className="col-span-3 premium-card p-6 rounded-[2rem] flex flex-col h-[380px]">
+                    <div className="flex items-center justify-between mb-4">
                         <h3 className="font-bold text-xl uppercase tracking-tighter">Inasistencias Personal</h3>
                         <div className="px-2 py-1 bg-destructive/10 text-destructive rounded-lg text-[8px] font-black uppercase tracking-widest">HOY</div>
                     </div>
