@@ -55,10 +55,10 @@ export default async function DashboardPage() {
                 <StatsCard
                     title="Asistencia Hoy"
                     value={data.stats.asistenciaHoy.porcentaje}
-                    description={`${data.stats.asistenciaHoy.presentes} de ${data.stats.asistenciaHoy.totalConClasesHoy} con clases`}
+                    description={`${data.stats.asistenciaHoy.presentes} presentes de ${data.stats.asistenciaHoy.presentes + data.stats.asistenciaHoy.ausentes} reportados`}
                     icon={UserCheck}
                     color="secondary"
-                    breakdown={`👨 H: ${data.stats.asistenciaHoy.presentesH}/${data.stats.asistenciaHoy.conClasesHoyH}  👩 V: ${data.stats.asistenciaHoy.presentesV}/${data.stats.asistenciaHoy.conClasesHoyV}`}
+                    breakdown={`👨 H: ${data.stats.asistenciaHoy.presentesH}  |  👩 V: ${data.stats.asistenciaHoy.presentesV}`}
                 />
                 <StatsCard
                     title="Inasistencias"
@@ -69,12 +69,12 @@ export default async function DashboardPage() {
                     breakdown={`👨 H: ${data.stats.asistenciaHoy.ausentesH}  |  👩 V: ${data.stats.asistenciaHoy.ausentesV}`}
                 />
                 <StatsCard
-                    title="Reporte Docentes"
-                    value={`${data.stats.reporteDocentes.docentesReportaron}/${data.stats.reporteDocentes.totalDocentes}`}
-                    description="Docentes reportaron"
+                    title="Sin Reporte"
+                    value={data.stats.reporteDocentes.estudiantesSinReporte?.toString() || "0"}
+                    description="Alumnos por reportar"
                     icon={ClipboardCheck}
                     color="secondary"
-                    breakdown={`✓ Reportaron: ${data.stats.reporteDocentes.docentesReportaron} | ✗ Sin reporte: ${data.stats.reporteDocentes.docentesSinReporte}`}
+                    breakdown={`⚠ Docentes pendientes: ${data.stats.reporteDocentes.docentesSinReporte}`}
                 />
             </div>
 
@@ -193,7 +193,7 @@ function StatsCard({ title, value, description, icon: Icon, trend, trendNegative
                 )}>{value}</p>
                 <p className="text-xs text-muted-foreground font-medium">{description}</p>
                 {breakdown && (
-                    <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mt-2 pt-2 border-t border-border/30">
+                    <p className="text-xs font-black text-foreground/70 uppercase tracking-wider mt-3 pt-3 border-t border-border/40">
                         {breakdown}
                     </p>
                 )}

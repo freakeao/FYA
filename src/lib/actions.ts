@@ -766,10 +766,14 @@ export async function getDashboardData() {
         const docentesSinReporteCount = totalDocentesConClasesHoy - docentesReportaronCount;
 
         // 5. Calcular porcentaje de asistencia basado en reportes reales
-        // Usamos estudiantes con clases HOY como denominador, no total matriculados
-        const asistenciaPorcentaje = totalEstudiantesConClasesHoy > 0 && presentesTotal > 0
-            ? ((presentesTotal / totalEstudiantesConClasesHoy) * 100).toFixed(1) + "%"
+        // Usamos (presentes + ausentes) como denominador para reflejar la realidad de lo YA reportado
+        const totalReportados = presentesTotal + ausentesTotal;
+        const asistenciaPorcentaje = totalReportados > 0
+            ? ((presentesTotal / totalReportados) * 100).toFixed(1) + "%"
             : "0%";
+
+        // Calcular estudiantes sin reporte (Pendientes)
+        const estudiantesSinReporte = Math.max(0, totalEstudiantesConClasesHoy - totalReportados);
 
         // 6. Actividad de Clases (Todas para ADMIN/COORD, Mis Clases para DOCENTE)
         let clasesHoy: any[] = [];
@@ -826,6 +830,7 @@ export async function getDashboardData() {
                     totalDocentes: totalDocentesConClasesHoy,
                     docentesReportaron: docentesReportaronCount,
                     docentesSinReporte: docentesSinReporteCount,
+                    estudiantesSinReporte: estudiantesSinReporte, // NEW FIELD
                     porcentajeReporte: totalDocentesConClasesHoy > 0
                         ? ((docentesReportaronCount / totalDocentesConClasesHoy) * 100).toFixed(1) + "%"
                         : "0%"
