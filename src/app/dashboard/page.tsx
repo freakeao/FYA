@@ -50,7 +50,7 @@ export default async function DashboardPage() {
                     description="Matrícula activa"
                     icon={Users}
                     color="primary"
-                    breakdown={`👨 H: ${data.stats.matricula.hombres}  |  👩 V: ${data.stats.matricula.mujeres}`}
+                    breakdown={`👨 V: ${data.stats.matricula.hombres}  |  👩 H: ${data.stats.matricula.mujeres}`}
                 />
                 <StatsCard
                     title="Asistencia Hoy"
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
                     description={`${data.stats.asistenciaHoy.presentes} presentes de ${data.stats.asistenciaHoy.presentes + data.stats.asistenciaHoy.ausentes} reportados`}
                     icon={UserCheck}
                     color="secondary"
-                    breakdown={`👨 H: ${data.stats.asistenciaHoy.presentesH}  |  👩 V: ${data.stats.asistenciaHoy.presentesV}`}
+                    breakdown={`👨 V: ${data.stats.asistenciaHoy.presentesHombres}  |  👩 H: ${data.stats.asistenciaHoy.presentesMujeres}`}
                 />
                 <StatsCard
                     title="Inasistencias"
@@ -66,7 +66,7 @@ export default async function DashboardPage() {
                     description="Alumnos ausentes"
                     icon={UserMinus}
                     color="primary"
-                    breakdown={`👨 H: ${data.stats.asistenciaHoy.ausentesH}  |  👩 V: ${data.stats.asistenciaHoy.ausentesV}`}
+                    breakdown={`👨 V: ${data.stats.asistenciaHoy.ausentesHombres}  |  👩 H: ${data.stats.asistenciaHoy.ausentesMujeres}`}
                 />
                 <StatsCard
                     title="Sin Reporte"

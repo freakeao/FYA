@@ -576,6 +576,7 @@ export async function getAsistenciaAlumnosReport(startDate: string, endDate: str
             .select({
                 fecha: registrosAsistencia.fecha,
                 estudiante: estudiantes.nombre,
+                genero: estudiantes.genero,
                 numeroLista: estudiantes.numeroLista,
                 seccion: secciones.nombre,
                 materia: materias.nombre,
@@ -647,18 +648,18 @@ export async function getDashboardData() {
 
     try {
         // 1. Matrícula por género (total matriculados)
-        const [estudiantesHRes, estudiantesVRes] = await Promise.all([
+        const [estudiantesVaronesRes, estudiantesHembrasRes] = await Promise.all([
             db.select({ count: count() }).from(estudiantes).where(eq(estudiantes.genero, "VARON")).catch(() => [{ count: 0 }]),
             db.select({ count: count() }).from(estudiantes).where(eq(estudiantes.genero, "HEMBRA")).catch(() => [{ count: 0 }])
         ]);
 
-        const estudiantesHCount = Number(estudiantesHRes[0]?.count ?? 0);
-        const estudiantesVCount = Number(estudiantesVRes[0]?.count ?? 0);
-        const totalEstudiantesCount = estudiantesHCount + estudiantesVCount;
+        const totalVarones = Number(estudiantesVaronesRes[0]?.count ?? 0);
+        const totalHembras = Number(estudiantesHembrasRes[0]?.count ?? 0);
+        const totalEstudiantesCount = totalVarones + totalHembras;
 
         // 1.5. Estudiantes con clases HOY (basado en horarios de su sección)
 
-        const [estudiantesConClasesHoyHRes, estudiantesConClasesHoyVRes] = await Promise.all([
+        const [estudiantesConClasesHoyVaronesRes, estudiantesConClasesHoyHembrasRes] = await Promise.all([
             db
                 .selectDistinct({ id: estudiantes.id })
                 .from(estudiantes)
@@ -681,27 +682,27 @@ export async function getDashboardData() {
                 .catch(() => [])
         ]);
 
-        const estudiantesConClasesHoyH = estudiantesConClasesHoyHRes.length;
-        const estudiantesConClasesHoyV = estudiantesConClasesHoyVRes.length;
-        const totalEstudiantesConClasesHoy = estudiantesConClasesHoyH + estudiantesConClasesHoyV;
+        const estudiantesConClasesHoyVarones = estudiantesConClasesHoyVaronesRes.length;
+        const estudiantesConClasesHoyHembras = estudiantesConClasesHoyHembrasRes.length;
+        const totalEstudiantesConClasesHoy = estudiantesConClasesHoyVarones + estudiantesConClasesHoyHembras;
 
         // 2. Asistencia del día basada en reportes reales (con género)
         const [presentesHoyRes] = await db
             .select({
-                totalH: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadH}), 0)`,
-                totalV: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadV}), 0)`,
+                totalHembras: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadH}), 0)`, // cantidadH stores Hembras
+                totalVarones: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadV}), 0)`, // cantidadV stores Varones
                 totalPresentes: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadT}), 0)`
             })
             .from(registrosAsistencia)
             .where(eq(registrosAsistencia.fecha, today))
-            .catch(() => [{ totalH: 0, totalV: 0, totalPresentes: 0 }]);
+            .catch(() => [{ totalHembras: 0, totalVarones: 0, totalPresentes: 0 }]);
 
-        const presentesH = Number(presentesHoyRes?.totalH ?? 0);
-        const presentesV = Number(presentesHoyRes?.totalV ?? 0);
+        const presentesHembras = Number(presentesHoyRes?.totalHembras ?? 0);
+        const presentesVarones = Number(presentesHoyRes?.totalVarones ?? 0);
         const presentesTotal = Number(presentesHoyRes?.totalPresentes ?? 0);
 
-        // 3. Inasistencias por género
-        const [inasistenciasHRes, inasistenciasVRes] = await Promise.all([
+        // 3. Inasistencias por género (Calculado desde inasistenciasAlumnos)
+        const [inasistenciasVaronesRes, inasistenciasHembrasRes] = await Promise.all([
             db
                 .select({ count: count() })
                 .from(inasistenciasAlumnos)
@@ -724,9 +725,9 @@ export async function getDashboardData() {
                 .catch(() => [{ count: 0 }])
         ]);
 
-        const ausentesH = Number(inasistenciasHRes[0]?.count ?? 0);
-        const ausentesV = Number(inasistenciasVRes[0]?.count ?? 0);
-        const ausentesTotal = ausentesH + ausentesV;
+        const ausentesVarones = Number(inasistenciasVaronesRes[0]?.count ?? 0);
+        const ausentesHembras = Number(inasistenciasHembrasRes[0]?.count ?? 0);
+        const ausentesTotal = ausentesVarones + ausentesHembras;
 
         // 4. Docentes que reportaron hoy (basado en día de la semana)
 
@@ -811,20 +812,24 @@ export async function getDashboardData() {
             stats: {
                 matricula: {
                     total: totalEstudiantesCount,
-                    hombres: estudiantesHCount,
-                    mujeres: estudiantesVCount
+                    hombres: totalVarones,
+                    mujeres: totalHembras
                 },
                 asistenciaHoy: {
                     presentes: presentesTotal,
-                    presentesH: presentesH,
-                    presentesV: presentesV,
+                    presentesHombres: presentesVarones,
+                    presentesMujeres: presentesHembras,
+                    presentesH: presentesVarones, // Keep for backward compat or just map to male
+                    presentesV: presentesHembras, // Keep for backward compat or just map to female
                     ausentes: ausentesTotal,
-                    ausentesH: ausentesH,
-                    ausentesV: ausentesV,
+                    ausentesHombres: ausentesVarones,
+                    ausentesMujeres: ausentesHembras,
+                    ausentesH: ausentesVarones,
+                    ausentesV: ausentesHembras,
                     porcentaje: asistenciaPorcentaje,
                     totalConClasesHoy: totalEstudiantesConClasesHoy,
-                    conClasesHoyH: estudiantesConClasesHoyH,
-                    conClasesHoyV: estudiantesConClasesHoyV
+                    conClasesHoyHombres: estudiantesConClasesHoyVarones,
+                    conClasesHoyMujeres: estudiantesConClasesHoyHembras
                 },
                 reporteDocentes: {
                     totalDocentes: totalDocentesConClasesHoy,
@@ -845,7 +850,11 @@ export async function getDashboardData() {
         return {
             stats: {
                 matricula: { total: 0, hombres: 0, mujeres: 0 },
-                asistenciaHoy: { presentes: 0, presentesH: 0, presentesV: 0, ausentes: 0, ausentesH: 0, ausentesV: 0, porcentaje: "0%" },
+                asistenciaHoy: {
+                    presentes: 0, presentesHombres: 0, presentesMujeres: 0,
+                    ausentes: 0, ausentesHombres: 0, ausentesMujeres: 0,
+                    porcentaje: "0%"
+                },
                 reporteDocentes: { totalDocentes: 0, docentesReportaron: 0, docentesSinReporte: 0, porcentajeReporte: "0%" },
                 inasistenciasPersonal: 0
             },
