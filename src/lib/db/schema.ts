@@ -4,6 +4,7 @@ import { relations } from "drizzle-orm";
 export const rolEnum = pgEnum("rol", ["ADMINISTRADOR", "COORDINADOR", "DOCENTE", "ADMINISTRATIVO", "OBRERO"]);
 export const generoEnum = pgEnum("genero", ["HEMBRA", "VARON"]);
 export const diaSemanaEnum = pgEnum("dia_semana", ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO", "DOMINGO"]);
+export const departamentoEnum = pgEnum("departamento", ["MEDIA_GENERAL", "MEDIA_BASICA", "ADMINISTRACION", "DOCUMENTAL", "TODOS"]);
 
 export const usuarios = pgTable("usuarios", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -11,6 +12,7 @@ export const usuarios = pgTable("usuarios", {
   usuario: text("usuario").unique(), // Nullable for staff without access
   password: text("password"), // Nullable
   rol: rolEnum("rol").notNull(),
+  departamento: departamentoEnum("departamento").default("MEDIA_GENERAL"), // New Scope Field
   cedula: text("cedula"), // Cédula de identidad
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -19,6 +21,7 @@ export const secciones = pgTable("secciones", {
   id: uuid("id").primaryKey().defaultRandom(),
   nombre: text("nombre").notNull(),
   grado: text("grado").notNull(),
+  departamento: departamentoEnum("departamento").default("MEDIA_GENERAL").notNull(), // Linked to coordination
   docenteGuiaId: uuid("docente_guia_id").references(() => usuarios.id, { onDelete: "set null" }),
 });
 

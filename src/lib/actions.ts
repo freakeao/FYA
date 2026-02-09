@@ -15,6 +15,13 @@ const diaSemanaMap: Record<number, string> = {
 // --- SECCIONES ---
 // --- SECCIONES ---
 export async function getSecciones() {
+    const session = await getSession();
+    const userRole = session?.user?.rol;
+    const userDept = session?.user?.departamento || "MEDIA_GENERAL";
+    const isGlobalAdmin = userRole === "ADMINISTRADOR" || userDept === "TODOS";
+
+    const filter = isGlobalAdmin ? sql`1=1` : eq(secciones.departamento, userDept);
+
     const result = await db.select({
         id: secciones.id,
         nombre: secciones.nombre,
@@ -25,6 +32,7 @@ export async function getSecciones() {
     })
         .from(secciones)
         .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id))
+        .where(filter)
         .orderBy(secciones.nombre);
 
     return result;
@@ -35,7 +43,7 @@ export async function getSeccion(id: string) {
     return result;
 }
 
-export async function createSeccion(data: { nombre: string; grado: string; docenteGuiaId?: string }) {
+export async function createSeccion(data: { nombre: string; grado: string; docenteGuiaId?: string; departamento: "MEDIA_GENERAL" | "MEDIA_BASICA" | "ADMINISTRACION" | "TODOS" }) {
     try {
         await db.insert(secciones).values(data);
         revalidatePath("/dashboard/secciones");
@@ -45,7 +53,7 @@ export async function createSeccion(data: { nombre: string; grado: string; docen
     }
 }
 
-export async function updateSeccion(id: string, data: { nombre: string; grado: string; docenteGuiaId?: string }) {
+export async function updateSeccion(id: string, data: { nombre: string; grado: string; docenteGuiaId?: string; departamento: "MEDIA_GENERAL" | "MEDIA_BASICA" | "ADMINISTRACION" | "TODOS" }) {
     try {
         await db.update(secciones).set(data).where(eq(secciones.id, id));
         revalidatePath("/dashboard/secciones");
@@ -211,7 +219,50 @@ export async function registrarAsistencia(data: {
         );
     }
 
+    // --- AUTOMATIZACION: Marcar al docente como Presente ---
+    try {
+        const session = await getSession();
+        if (session?.user?.id) {
+            // Buscamos quién es el docente asignado a este horario
+            const [horarioData] = await db.select({ docenteId: horarios.docenteId })
+                .from(horarios)
+                .where(eq(horarios.id, data.horarioId))
+                .limit(1);
+
+            if (horarioData?.docenteId) {
+                // Realizamos el upsert de asistencia personal (Docente)
+                const existingDocenteAsis = await db.select().from(asistenciaDocentes)
+                    .where(and(
+                        eq(asistenciaDocentes.docenteId, horarioData.docenteId),
+                        eq(asistenciaDocentes.fecha, data.fecha)
+                    )).limit(1);
+
+                if (existingDocenteAsis.length > 0) {
+                    await db.update(asistenciaDocentes).set({
+                        presente: true,
+                        observaciones: "Marcado automáticamente por registro de clase",
+                        tipo: null,
+                        coordinadorId: session.user.id
+                    }).where(eq(asistenciaDocentes.id, existingDocenteAsis[0].id));
+                } else {
+                    await db.insert(asistenciaDocentes).values({
+                        docenteId: horarioData.docenteId,
+                        coordinadorId: session.user.id,
+                        fecha: data.fecha,
+                        presente: true,
+                        observaciones: "Marcado automáticamente por registro de clase",
+                        tipo: null,
+                    });
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Error en automatización de asistencia docente:", error);
+        // No bloqueamos el registro de clase si falla el automarcado de personal
+    }
+
     revalidatePath("/dashboard/asistencia");
+    revalidatePath("/dashboard/asistencia/personal");
 }
 
 export async function getAsistenciaByClaseYFecha(horarioId: string, fecha: string) {
@@ -285,7 +336,36 @@ export async function getUserSession() {
 }
 
 export async function getUsuarios() {
+    const session = await getSession();
+    const userRole = session?.user?.rol;
+    const userDept = session?.user?.departamento || "MEDIA_GENERAL";
+    const isGlobalAdmin = userRole === "ADMINISTRADOR" || userDept === "TODOS";
+
+    if (isGlobalAdmin) {
+        return await db.query.usuarios.findMany({
+            orderBy: (u: any, { asc }: any) => [asc(u.nombre)],
+        });
+    }
+
+    // Filter logic for Coordinators
+    if (userDept === "ADMINISTRACION") {
+        // Admin coord sees Admin + Obreros
+        return await db.query.usuarios.findMany({
+            where: (u: any, { inArray }: any) => inArray(u.rol, ["ADMINISTRATIVO", "OBRERO"]),
+            orderBy: (u: any, { asc }: any) => [asc(u.nombre)],
+        });
+    }
+
+    // Academic coords see Docentes + Maybe their own team? 
+    // Usually academic coords manage Teachers (Docentes).
     return await db.query.usuarios.findMany({
+        where: (u: any, { eq, and, or, inArray }: any) => and(
+            or(
+                eq(u.departamento, userDept),
+                eq(u.departamento, "TODOS") // Visible items
+            ),
+            inArray(u.rol, ["DOCENTE", "COORDINADOR"])
+        ),
         orderBy: (u: any, { asc }: any) => [asc(u.nombre)],
     });
 }
@@ -295,6 +375,7 @@ export async function createUsuario(formData: FormData) {
     const usuario = formData.get("usuario") as string;
     const password = formData.get("password") as string;
     const rol = formData.get("rol") as "ADMINISTRADOR" | "COORDINADOR" | "DOCENTE" | "ADMINISTRATIVO" | "OBRERO";
+    const departamento = formData.get("departamento") as "MEDIA_GENERAL" | "MEDIA_BASICA" | "ADMINISTRACION" | "TODOS";
     const cedula = formData.get("cedula") as string;
     const grantAccess = formData.get("grantAccess") === "true";
 
@@ -313,6 +394,7 @@ export async function createUsuario(formData: FormData) {
             usuario: finalUsuario,
             password: hashedPassword,
             rol,
+            departamento: departamento || "MEDIA_GENERAL", // Default to Media General if missing
             cedula
         });
         revalidatePath("/dashboard/personal");
@@ -329,11 +411,12 @@ export async function updateUsuario(id: string, formData: FormData) {
     const usuario = formData.get("usuario") as string;
     const password = formData.get("password") as string;
     const rol = formData.get("rol") as "ADMINISTRADOR" | "COORDINADOR" | "DOCENTE" | "ADMINISTRATIVO" | "OBRERO";
+    const departamento = formData.get("departamento") as "MEDIA_GENERAL" | "MEDIA_BASICA" | "ADMINISTRACION" | "TODOS";
     const cedula = formData.get("cedula") as string;
     const grantAccess = formData.get("grantAccess") === "true";
 
     try {
-        const updateData: any = { nombre, rol, cedula };
+        const updateData: any = { nombre, rol, cedula, departamento };
 
         if (grantAccess) {
             if (usuario) updateData.usuario = usuario;
@@ -638,8 +721,12 @@ export async function getDashboardData() {
     if (!session) redirect("/login");
 
     const today = new Date().toISOString().split('T')[0];
+    const userRole = session.user.rol;
+    const userDept = session.user.departamento || "MEDIA_GENERAL"; // Fallback
+    const isGlobalAdmin = userRole === "ADMINISTRADOR" || userDept === "TODOS";
+    const isAdministrativeCoord = userDept === "ADMINISTRACION";
 
-    // Calcular día de la semana actual (para usar en múltiples consultas)
+    // Calcular día de la semana actual
     const now = new Date();
     const options = { timeZone: "America/Caracas" };
     const venezuelaDateStr = now.toLocaleString("en-US", options);
@@ -647,18 +734,87 @@ export async function getDashboardData() {
     const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
 
     try {
+        // --- ADMINISTRATIVE COORDINATION VIEW ---
+        if (isAdministrativeCoord) {
+            // Logic for Administrative Coordinator (Staff only, no students)
+            const staffRoles = ["ADMINISTRATIVO", "OBRERO"];
+
+            const [totalPersonalRes, personalAusenteRes] = await Promise.all([
+                db.select({ count: count() })
+                    .from(usuarios)
+                    .where(sql`${usuarios.rol} IN ${staffRoles}`)
+                    .catch(() => [{ count: 0 }]),
+
+                db.select({ count: count() })
+                    .from(asistenciaDocentes)
+                    .innerJoin(usuarios, eq(asistenciaDocentes.docenteId, usuarios.id))
+                    .where(and(
+                        eq(asistenciaDocentes.fecha, today),
+                        eq(asistenciaDocentes.presente, false),
+                        sql`${usuarios.rol} IN ${staffRoles}`
+                    ))
+                    .catch(() => [{ count: 0 }])
+            ]);
+
+            const totalPersonal = Number(totalPersonalRes[0]?.count ?? 0);
+            const personalAusente = Number(personalAusenteRes[0]?.count ?? 0);
+            const personalPresente = Math.max(0, totalPersonal - personalAusente);
+
+            // Percentage calculation
+            const porcentajeAsistencia = totalPersonal > 0
+                ? ((personalPresente / totalPersonal) * 100).toFixed(1) + "%"
+                : "0%";
+
+            return {
+                viewType: "ADMINISTRATIVE", // Flag for UI
+                stats: {
+                    matricula: { total: totalPersonal, hombres: 0, mujeres: 0, label: "Total Personal" },
+                    asistenciaHoy: {
+                        presentes: personalPresente,
+                        ausentes: personalAusente,
+                        porcentaje: porcentajeAsistencia,
+                        label: "Asistencia Personal"
+                    },
+                    reporteDocentes: { totalDocentes: 0, docentesReportaron: 0, docentesSinReporte: 0, porcentajeReporte: "0%" },
+                    inasistenciasPersonal: personalAusente
+                },
+                docentesAusentes: [], // Or fetch specific staff absences list to show
+                clasesHoy: []
+            };
+        }
+
+        // --- ACADEMIC COORDINATION VIEW (MEDIA GENERAL / MEDIA BASICA / GLOBAL) ---
+
+        // Helper filter for sections based on department
+        const sectionFilter = isGlobalAdmin
+            ? sql`1=1`
+            : eq(secciones.departamento, userDept);
+
         // 1. Matrícula por género (total matriculados)
         const [estudiantesVaronesRes, estudiantesHembrasRes] = await Promise.all([
-            db.select({ count: count() }).from(estudiantes).where(eq(estudiantes.genero, "VARON")).catch(() => [{ count: 0 }]),
-            db.select({ count: count() }).from(estudiantes).where(eq(estudiantes.genero, "HEMBRA")).catch(() => [{ count: 0 }])
+            db.select({ count: count() })
+                .from(estudiantes)
+                .innerJoin(secciones, eq(estudiantes.seccionId, secciones.id))
+                .where(and(
+                    eq(estudiantes.genero, "VARON"),
+                    sectionFilter
+                ))
+                .catch(() => [{ count: 0 }]),
+            db.select({ count: count() })
+                .from(estudiantes)
+                .innerJoin(secciones, eq(estudiantes.seccionId, secciones.id))
+                .where(and(
+                    eq(estudiantes.genero, "HEMBRA"),
+                    sectionFilter
+                ))
+                .catch(() => [{ count: 0 }])
         ]);
 
         const totalVarones = Number(estudiantesVaronesRes[0]?.count ?? 0);
         const totalHembras = Number(estudiantesHembrasRes[0]?.count ?? 0);
         const totalEstudiantesCount = totalVarones + totalHembras;
 
-        // 1.5. Estudiantes con clases HOY (basado en horarios de su sección)
-
+        // 1.5. Estudiantes con clases HOY
         const [estudiantesConClasesHoyVaronesRes, estudiantesConClasesHoyHembrasRes] = await Promise.all([
             db
                 .selectDistinct({ id: estudiantes.id })
@@ -667,7 +823,8 @@ export async function getDashboardData() {
                 .innerJoin(horarios, eq(horarios.seccionId, secciones.id))
                 .where(and(
                     eq(horarios.diaSemana, hoyDia as any),
-                    eq(estudiantes.genero, "VARON")
+                    eq(estudiantes.genero, "VARON"),
+                    sectionFilter
                 ))
                 .catch(() => []),
             db
@@ -677,7 +834,8 @@ export async function getDashboardData() {
                 .innerJoin(horarios, eq(horarios.seccionId, secciones.id))
                 .where(and(
                     eq(horarios.diaSemana, hoyDia as any),
-                    eq(estudiantes.genero, "HEMBRA")
+                    eq(estudiantes.genero, "HEMBRA"),
+                    sectionFilter
                 ))
                 .catch(() => [])
         ]);
@@ -687,40 +845,50 @@ export async function getDashboardData() {
         const totalEstudiantesConClasesHoy = estudiantesConClasesHoyVarones + estudiantesConClasesHoyHembras;
 
         // 2. Asistencia del día basada en reportes reales (con género)
+        // Need to join Horario -> Seccion to filter by Dept
         const [presentesHoyRes] = await db
             .select({
-                totalHembras: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadH}), 0)`, // cantidadH stores Hembras
-                totalVarones: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadV}), 0)`, // cantidadV stores Varones
+                totalHembras: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadH}), 0)`,
+                totalVarones: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadV}), 0)`,
                 totalPresentes: sql<number>`COALESCE(SUM(${registrosAsistencia.cantidadT}), 0)`
             })
             .from(registrosAsistencia)
-            .where(eq(registrosAsistencia.fecha, today))
+            .innerJoin(horarios, eq(registrosAsistencia.horarioId, horarios.id))
+            .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
+            .where(and(
+                eq(registrosAsistencia.fecha, today),
+                sectionFilter
+            ))
             .catch(() => [{ totalHembras: 0, totalVarones: 0, totalPresentes: 0 }]);
 
         const presentesHembras = Number(presentesHoyRes?.totalHembras ?? 0);
         const presentesVarones = Number(presentesHoyRes?.totalVarones ?? 0);
         const presentesTotal = Number(presentesHoyRes?.totalPresentes ?? 0);
 
-        // 3. Inasistencias por género (Calculado desde inasistenciasAlumnos)
+        // 3. Inasistencias por género
         const [inasistenciasVaronesRes, inasistenciasHembrasRes] = await Promise.all([
             db
                 .select({ count: count() })
                 .from(inasistenciasAlumnos)
                 .innerJoin(estudiantes, eq(inasistenciasAlumnos.estudianteId, estudiantes.id))
+                .innerJoin(secciones, eq(estudiantes.seccionId, secciones.id)) // Filter join
                 .innerJoin(registrosAsistencia, eq(inasistenciasAlumnos.registroId, registrosAsistencia.id))
                 .where(and(
                     eq(registrosAsistencia.fecha, today),
-                    eq(estudiantes.genero, "VARON")
+                    eq(estudiantes.genero, "VARON"),
+                    sectionFilter
                 ))
                 .catch(() => [{ count: 0 }]),
             db
                 .select({ count: count() })
                 .from(inasistenciasAlumnos)
                 .innerJoin(estudiantes, eq(inasistenciasAlumnos.estudianteId, estudiantes.id))
+                .innerJoin(secciones, eq(estudiantes.seccionId, secciones.id)) // Filter join
                 .innerJoin(registrosAsistencia, eq(inasistenciasAlumnos.registroId, registrosAsistencia.id))
                 .where(and(
                     eq(registrosAsistencia.fecha, today),
-                    eq(estudiantes.genero, "HEMBRA")
+                    eq(estudiantes.genero, "HEMBRA"),
+                    sectionFilter
                 ))
                 .catch(() => [{ count: 0 }])
         ]);
@@ -729,23 +897,39 @@ export async function getDashboardData() {
         const ausentesHembras = Number(inasistenciasHembrasRes[0]?.count ?? 0);
         const ausentesTotal = ausentesVarones + ausentesHembras;
 
-        // 4. Docentes que reportaron hoy (basado en día de la semana)
+        // 4. Docentes que reportaron hoy
+        // Filter classes by dept
 
         const [docentesConClasesHoyRes, docentesReportaronRes, docentesAusentesHoy] = await Promise.all([
-            // Contar docentes únicos que tienen clases programadas HOY (según día de la semana)
+            // Docentes con clases HOY en este Dept
             db
                 .selectDistinct({ docenteId: horarios.docenteId })
                 .from(horarios)
-                .where(eq(horarios.diaSemana, hoyDia as any))
+                .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
+                .where(and(
+                    eq(horarios.diaSemana, hoyDia as any),
+                    sectionFilter
+                ))
                 .catch(() => []),
-            // Contar docentes únicos que reportaron asistencia HOY
+            // Docentes que reportaron hoy en este Dept
             db
                 .selectDistinct({ docenteId: horarios.docenteId })
                 .from(registrosAsistencia)
                 .innerJoin(horarios, eq(registrosAsistencia.horarioId, horarios.id))
-                .where(eq(registrosAsistencia.fecha, today))
+                .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
+                .where(and(
+                    eq(registrosAsistencia.fecha, today),
+                    sectionFilter
+                ))
                 .catch(() => []),
-            // Docentes ausentes HOY
+            // Docentes ausentes HOY (Global list? Or filtered?)
+            // Ideally filtered by user dept, but docentes are shared?
+            // Let's filter docentes by who are in this dept's classes schedule?
+            // Re-using the attendance table logic might be tricky.
+            // Simplified: Docentes tracked in asistenciaDocentes. 
+            // We can check if the docente belongs to this department? 
+            // Or just show all if we assume docentes are assigned to departments?
+            // Schema has usuario.departamento. let's use that.
             db
                 .select({
                     nombre: usuarios.nombre,
@@ -756,7 +940,8 @@ export async function getDashboardData() {
                 .where(
                     and(
                         eq(asistenciaDocentes.fecha, today),
-                        eq(asistenciaDocentes.presente, false)
+                        eq(asistenciaDocentes.presente, false),
+                        isGlobalAdmin ? sql`1=1` : eq(usuarios.departamento, userDept)
                     )
                 )
                 .catch(() => [])
@@ -766,49 +951,42 @@ export async function getDashboardData() {
         const docentesReportaronCount = docentesReportaronRes.length;
         const docentesSinReporteCount = totalDocentesConClasesHoy - docentesReportaronCount;
 
-        // 5. Calcular porcentaje de asistencia basado en reportes reales
-        // Usamos (presentes + ausentes) como denominador para reflejar la realidad de lo YA reportado
         const totalReportados = presentesTotal + ausentesTotal;
         const asistenciaPorcentaje = totalReportados > 0
             ? ((presentesTotal / totalReportados) * 100).toFixed(1) + "%"
             : "0%";
 
-        // Calcular estudiantes sin reporte (Pendientes)
         const estudiantesSinReporte = Math.max(0, totalEstudiantesConClasesHoy - totalReportados);
 
-        // 6. Actividad de Clases (Todas para ADMIN/COORD, Mis Clases para DOCENTE)
+        // 6. Actividad de Clases
         let clasesHoy: any[] = [];
-        const isAdminOrCoord = session.user.rol === "ADMINISTRADOR" || session.user.rol === "COORDINADOR";
-
-        if (session.user.id) {
-            const query = db
-                .select({
-                    id: horarios.id,
-                    seccion: secciones.nombre,
-                    grado: secciones.grado,
-                    materia: materias.nombre,
-                    docente: usuarios.nombre,
-                    descripcion: horarios.descripcion,
-                    hora: sql<string>`${horarios.horaInicio} || ' - ' || ${horarios.horaFin}`,
-                    estado: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM ${registrosAsistencia} WHERE ${registrosAsistencia.horarioId} = ${horarios.id} AND ${registrosAsistencia.fecha} = ${today}) THEN 'Completado' ELSE 'Pendiente' END`
-                })
-                .from(horarios)
-                .leftJoin(secciones, eq(horarios.seccionId, secciones.id))
-                .leftJoin(materias, eq(horarios.materiaId, materias.id))
-                .leftJoin(usuarios, eq(horarios.docenteId, usuarios.id))
-                .where(
-                    and(
-                        eq(horarios.diaSemana, hoyDia as any),
-                        // If not Admin/Coord, filter by teacher ID
-                        isAdminOrCoord ? sql`1=1` : eq(horarios.docenteId, session.user.id)
-                    )
+        const query = db
+            .select({
+                id: horarios.id,
+                seccion: secciones.nombre,
+                grado: secciones.grado,
+                materia: materias.nombre,
+                docente: usuarios.nombre,
+                descripcion: horarios.descripcion,
+                hora: sql<string>`${horarios.horaInicio} || ' - ' || ${horarios.horaFin}`,
+                estado: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM ${registrosAsistencia} WHERE ${registrosAsistencia.horarioId} = ${horarios.id} AND ${registrosAsistencia.fecha} = ${today}) THEN 'Completado' ELSE 'Pendiente' END`
+            })
+            .from(horarios)
+            .leftJoin(secciones, eq(horarios.seccionId, secciones.id))
+            .leftJoin(materias, eq(horarios.materiaId, materias.id))
+            .leftJoin(usuarios, eq(horarios.docenteId, usuarios.id))
+            .where(
+                and(
+                    eq(horarios.diaSemana, hoyDia as any),
+                    sectionFilter // Filter by Dept
                 )
-                .orderBy(horarios.horaInicio);
+            )
+            .orderBy(horarios.horaInicio);
 
-            clasesHoy = await query.catch(() => []);
-        }
+        clasesHoy = await query.catch(() => []);
 
         return {
+            viewType: "ACADEMIC",
             stats: {
                 matricula: {
                     total: totalEstudiantesCount,
@@ -819,8 +997,8 @@ export async function getDashboardData() {
                     presentes: presentesTotal,
                     presentesHombres: presentesVarones,
                     presentesMujeres: presentesHembras,
-                    presentesH: presentesVarones, // Keep for backward compat or just map to male
-                    presentesV: presentesHembras, // Keep for backward compat or just map to female
+                    presentesH: presentesVarones,
+                    presentesV: presentesHembras,
                     ausentes: ausentesTotal,
                     ausentesHombres: ausentesVarones,
                     ausentesMujeres: ausentesHembras,
@@ -835,7 +1013,7 @@ export async function getDashboardData() {
                     totalDocentes: totalDocentesConClasesHoy,
                     docentesReportaron: docentesReportaronCount,
                     docentesSinReporte: docentesSinReporteCount,
-                    estudiantesSinReporte: estudiantesSinReporte, // NEW FIELD
+                    estudiantesSinReporte: estudiantesSinReporte,
                     porcentajeReporte: totalDocentesConClasesHoy > 0
                         ? ((docentesReportaronCount / totalDocentesConClasesHoy) * 100).toFixed(1) + "%"
                         : "0%"
@@ -848,6 +1026,7 @@ export async function getDashboardData() {
     } catch (error) {
         console.error("Dashboard data error:", error);
         return {
+            viewType: "ERROR",
             stats: {
                 matricula: { total: 0, hombres: 0, mujeres: 0 },
                 asistenciaHoy: {
@@ -859,7 +1038,7 @@ export async function getDashboardData() {
                 inasistenciasPersonal: 0
             },
             docentesAusentes: [],
-            misClases: []
+            misClases: [] // Legacy compat
         };
     }
 }

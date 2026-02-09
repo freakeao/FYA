@@ -45,66 +45,82 @@ export default async function DashboardPage() {
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatsCard
-                    title="Total Alumnos"
+                    title={data.stats.matricula.label || "Total Alumnos"}
                     value={data.stats.matricula.total.toString()}
-                    description="Matrícula activa"
+                    description={data.viewType === "ADMINISTRATIVE" ? "Personal registrado" : "Matrícula activa"}
                     icon={Users}
                     color="primary"
-                    breakdown={`👨 V: ${data.stats.matricula.hombres}  |  👩 H: ${data.stats.matricula.mujeres}`}
+                    breakdown={data.viewType !== "ADMINISTRATIVE" ? `👨 V: ${data.stats.matricula.hombres}  |  👩 H: ${data.stats.matricula.mujeres}` : undefined}
                 />
                 <StatsCard
-                    title="Asistencia Hoy"
+                    title={data.stats.asistenciaHoy.label || "Asistencia Hoy"}
                     value={data.stats.asistenciaHoy.porcentaje}
                     description={`${data.stats.asistenciaHoy.presentes} presentes de ${data.stats.asistenciaHoy.presentes + data.stats.asistenciaHoy.ausentes} reportados`}
                     icon={UserCheck}
                     color="secondary"
-                    breakdown={`👨 V: ${data.stats.asistenciaHoy.presentesHombres}  |  👩 H: ${data.stats.asistenciaHoy.presentesMujeres}`}
+                    breakdown={data.viewType !== "ADMINISTRATIVE" ? `👨 V: ${data.stats.asistenciaHoy.presentesHombres}  |  👩 H: ${data.stats.asistenciaHoy.presentesMujeres}` : undefined}
                 />
                 <StatsCard
                     title="Inasistencias"
                     value={data.stats.asistenciaHoy.ausentes.toString()}
-                    description="Alumnos ausentes"
+                    description={data.viewType === "ADMINISTRATIVE" ? "Personal ausente" : "Alumnos ausentes"}
                     icon={UserMinus}
                     color="primary"
-                    breakdown={`👨 V: ${data.stats.asistenciaHoy.ausentesHombres}  |  👩 H: ${data.stats.asistenciaHoy.ausentesMujeres}`}
+                    breakdown={data.viewType !== "ADMINISTRATIVE" ? `👨 V: ${data.stats.asistenciaHoy.ausentesHombres}  |  👩 H: ${data.stats.asistenciaHoy.ausentesMujeres}` : undefined}
                 />
-                <StatsCard
-                    title="Sin Reporte"
-                    value={data.stats.reporteDocentes.estudiantesSinReporte?.toString() || "0"}
-                    description="Alumnos por reportar"
-                    icon={ClipboardCheck}
-                    color="secondary"
-                    breakdown={`⚠ Docentes pendientes: ${data.stats.reporteDocentes.docentesSinReporte}`}
-                />
+                {data.viewType !== "ADMINISTRATIVE" && (
+                    <StatsCard
+                        title="Sin Reporte"
+                        value={data.stats.reporteDocentes.estudiantesSinReporte?.toString() || "0"}
+                        description="Alumnos por reportar"
+                        icon={ClipboardCheck}
+                        color="secondary"
+                        breakdown={`⚠ Docentes pendientes: ${data.stats.reporteDocentes.docentesSinReporte}`}
+                    />
+                )}
+                {data.viewType === "ADMINISTRATIVE" && (
+                    <StatsCard
+                        title="Reportes"
+                        value="Activo"
+                        description="Monitor de jornada"
+                        icon={ClipboardCheck}
+                        color="secondary"
+                    />
+                )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                {/* Section for Teachers: Their classes */}
+                {/* Section for Teachers: Their classes (HIDDEN FOR ADMIN COORD) */}
+                {data.viewType !== "ADMINISTRATIVE" && (
+                    <div className={cn(
+                        "premium-card p-6 rounded-[2rem] flex flex-col h-[380px]",
+                        userRole === "DOCENTE" ? "col-span-4" : "col-span-4"
+                    )}>
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="font-bold text-xl uppercase tracking-tighter">
+                                    {userRole === "DOCENTE" ? "Mis Clases de Hoy" : "Actividad de Clases"}
+                                </h3>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+                                    {userRole === "DOCENTE" ? "Horario y estado de asistencia" : "Resumen de bloques horarios"}
+                                </p>
+                            </div>
+                            <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <GraduationCap className="w-5 h-5 text-primary" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 flex-1 overflow-hidden">
+                            <ClassCarousel classes={data.clasesHoy || []} />
+                        </div>
+                    </div>
+                )}
+
+                {/* Section for Admin/Coord: Teacher absences (OR ALL STAFF ABSENCES FOR ADMIN COORD) */}
                 <div className={cn(
                     "premium-card p-6 rounded-[2rem] flex flex-col h-[380px]",
-                    userRole === "DOCENTE" ? "col-span-4" : "col-span-4"
+                    data.viewType === "ADMINISTRATIVE" ? "col-span-7" : "col-span-3"
                 )}>
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 className="font-bold text-xl uppercase tracking-tighter">
-                                {userRole === "DOCENTE" ? "Mis Clases de Hoy" : "Actividad de Clases"}
-                            </h3>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
-                                {userRole === "DOCENTE" ? "Horario y estado de asistencia" : "Resumen de bloques horarios"}
-                            </p>
-                        </div>
-                        <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <GraduationCap className="w-5 h-5 text-primary" />
-                        </div>
-                    </div>
-
-                    <div className="space-y-4 flex-1 overflow-hidden">
-                        <ClassCarousel classes={data.clasesHoy || []} />
-                    </div>
-                </div>
-
-                {/* Section for Admin/Coord: Teacher absences */}
-                <div className="col-span-3 premium-card p-6 rounded-[2rem] flex flex-col h-[380px]">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="font-bold text-xl uppercase tracking-tighter">Inasistencias Personal</h3>
                         <div className="px-2 py-1 bg-destructive/10 text-destructive rounded-lg text-[8px] font-black uppercase tracking-widest">HOY</div>
@@ -119,7 +135,9 @@ export default async function DashboardPage() {
                                     </div>
                                     <div className="flex-1">
                                         <p className="text-sm font-bold uppercase tracking-tight">{docente.nombre}</p>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Docente de Aula</p>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                                            {data.viewType === "ADMINISTRATIVE" ? "Personal Operativo" : "Docente de Aula"}
+                                        </p>
                                     </div>
                                     <div className="text-right">
                                         <span className="text-[8px] font-black py-1.5 px-3 bg-destructive/20 text-destructive rounded-full uppercase tracking-widest">Ausente</span>

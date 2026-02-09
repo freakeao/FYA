@@ -20,6 +20,7 @@ export function PersonalModal({ isOpen, onClose, editingPersonal }: PersonalModa
     const [nombre, setNombre] = useState("");
     const [cedula, setCedula] = useState("");
     const [rol, setRol] = useState("DOCENTE");
+    const [departamento, setDepartamento] = useState("MEDIA_GENERAL");
 
     // Access States
     const [usuario, setUsuario] = useState("");
@@ -30,6 +31,7 @@ export function PersonalModal({ isOpen, onClose, editingPersonal }: PersonalModa
             setNombre(editingPersonal.nombre);
             setCedula(editingPersonal.cedula || "");
             setRol(editingPersonal.rol);
+            setDepartamento(editingPersonal.departamento || "MEDIA_GENERAL");
 
             if (editingPersonal.usuario) {
                 setGrantAccess(true);
@@ -45,6 +47,7 @@ export function PersonalModal({ isOpen, onClose, editingPersonal }: PersonalModa
             setNombre("");
             setCedula("");
             setRol("DOCENTE");
+            setDepartamento("MEDIA_GENERAL");
             setGrantAccess(false);
             setUsuario("");
             setPassword("");
@@ -61,6 +64,7 @@ export function PersonalModal({ isOpen, onClose, editingPersonal }: PersonalModa
         formData.append("nombre", nombre);
         formData.append("cedula", cedula);
         formData.append("rol", rol);
+        formData.append("departamento", departamento);
         formData.append("grantAccess", grantAccess.toString());
 
         if (grantAccess) {
@@ -139,6 +143,21 @@ export function PersonalModal({ isOpen, onClose, editingPersonal }: PersonalModa
                                     <option value="ADMINISTRATIVO">Administrativo</option>
                                     <option value="OBRERO">Obrero / Ambientalista</option>
                                     <option value="ADMINISTRADOR">Administrador</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2 col-span-2">
+                                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Departamento / Coordinación</label>
+                                <select
+                                    required
+                                    value={departamento}
+                                    onChange={e => setDepartamento(e.target.value)}
+                                    className="w-full bg-accent/20 border border-border/40 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none appearance-none"
+                                >
+                                    <option value="MEDIA_GENERAL">Media General (1er a 5to Año)</option>
+                                    <option value="MEDIA_BASICA">Media Básica / Especial</option>
+                                    <option value="ADMINISTRACION">Administración y Servicios</option>
+                                    <option value="DOCUMENTAL">Control de Estudios / Documental</option>
+                                    <option value="TODOS">Global (Acceso a todo)</option>
                                 </select>
                             </div>
                         </div>
