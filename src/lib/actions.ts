@@ -1,41 +1,64 @@
 "use server";
 
 import { db } from "@/lib/db/db";
-import { secciones, materias, estudiantes, horarios, registrosAsistencia, inasistenciasAlumnos, usuarios, asistenciaDocentes } from "@/lib/db/schema";
+import { secciones, materias, estudiantes, horarios, registrosAsistencia, inasistenciasAlumnos, usuarios, asistenciaDocentes, departamentos } from "@/lib/db/schema";
 import { eq, and, sql, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { login, logout, getSession } from "./auth";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { getVenezuelaDate, getVenezuelaDayOfWeek } from "./dateUtils";
 const diaSemanaMap: Record<number, string> = {
     0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
 };
 
-// --- SECCIONES ---
+export async function getUserSession() {
+    return await getSession();
+}
+
 // --- SECCIONES ---
 export async function getSecciones() {
     const session = await getSession();
     const userRole = session?.user?.rol;
-    const userDept = session?.user?.departamento || "MEDIA_GENERAL";
-    const isGlobalAdmin = userRole === "ADMINISTRADOR" || userDept === "TODOS";
+    const userDeptId = session?.user?.departamentoId;
+    const isGlobalAdmin = userRole === "ADMINISTRADOR" || !userDeptId;
 
-    const filter = isGlobalAdmin ? sql`1=1` : eq(secciones.departamento, userDept);
-
-    const result = await db.select({
+    const baseCols = {
         id: secciones.id,
         nombre: secciones.nombre,
         grado: secciones.grado,
         docenteGuia: usuarios.nombre,
         alumnosCount: sql<number>`(SELECT count(*) FROM ${estudiantes} WHERE ${estudiantes.seccionId} = ${secciones.id})`.mapWith(Number),
         materiasCount: sql<number>`(SELECT count(DISTINCT ${horarios.materiaId}) FROM ${horarios} WHERE ${horarios.seccionId} = ${secciones.id})`.mapWith(Number),
-    })
-        .from(secciones)
-        .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id))
-        .where(filter)
-        .orderBy(secciones.nombre);
+        departamentoId: secciones.departamentoId
+    };
 
-    return result;
+    // Re-implementing with safe pattern
+    try {
+        const results = await db.select(baseCols)
+            .from(secciones)
+            .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id))
+            .then((res: any) => res as any[]);
+
+        return isGlobalAdmin ? results : results.filter((s: any) => String(s.departamentoId) === String(userDeptId));
+    } catch (e: any) {
+        // Fallback to legacy column
+        try {
+            const fallbackCols = { ...baseCols, departamentoId: sql<string>`departamento` };
+            const results = await db.select(fallbackCols)
+                .from(secciones)
+                .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id)) as any[];
+            return isGlobalAdmin ? results : results.filter((s: any) => String(s.departamentoId) === String(userDeptId));
+        } catch (e2) {
+            // Final fallback
+            const finalCols = { ...baseCols };
+            delete (finalCols as any).departamentoId;
+            return await db.select(finalCols)
+                .from(secciones)
+                .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id));
+        }
+    }
 }
 
 export async function getSeccion(id: string) {
@@ -43,7 +66,7 @@ export async function getSeccion(id: string) {
     return result;
 }
 
-export async function createSeccion(data: { nombre: string; grado: string; docenteGuiaId?: string; departamento: "MEDIA_GENERAL" | "MEDIA_BASICA" | "ADMINISTRACION" | "TODOS" }) {
+export async function createSeccion(data: { nombre: string; grado: string; docenteGuiaId?: string; departamentoId: string }) {
     try {
         await db.insert(secciones).values(data);
         revalidatePath("/dashboard/secciones");
@@ -53,7 +76,7 @@ export async function createSeccion(data: { nombre: string; grado: string; docen
     }
 }
 
-export async function updateSeccion(id: string, data: { nombre: string; grado: string; docenteGuiaId?: string; departamento: "MEDIA_GENERAL" | "MEDIA_BASICA" | "ADMINISTRACION" | "TODOS" }) {
+export async function updateSeccion(id: string, data: { nombre: string; grado: string; docenteGuiaId?: string; departamentoId: string }) {
     try {
         await db.update(secciones).set(data).where(eq(secciones.id, id));
         revalidatePath("/dashboard/secciones");
@@ -135,14 +158,38 @@ export async function updateEstudiante(id: string, data: { nombre: string; numer
 
 // --- HORARIOS ---
 export async function getHorariosByDia(dia: any) {
-    return await db.query.horarios.findMany({
-        where: eq(horarios.diaSemana, dia),
-        with: {
-            seccion: true,
-            materia: true,
-            docente: true
+    const result = await db.select({
+        id: horarios.id,
+        seccionId: horarios.seccionId,
+        materiaId: horarios.materiaId,
+        docenteId: horarios.docenteId,
+        diaSemana: horarios.diaSemana,
+        horaInicio: horarios.horaInicio,
+        horaFin: horarios.horaFin,
+        descripcion: horarios.descripcion,
+        seccion: {
+            id: secciones.id,
+            nombre: secciones.nombre,
+            grado: secciones.grado,
+        },
+        materia: {
+            id: materias.id,
+            nombre: materias.nombre,
+            color: materias.color,
+        },
+        docente: {
+            id: usuarios.id,
+            nombre: usuarios.nombre,
         }
-    });
+    })
+        .from(horarios)
+        .leftJoin(secciones, eq(horarios.seccionId, secciones.id))
+        .leftJoin(materias, eq(horarios.materiaId, materias.id))
+        .leftJoin(usuarios, eq(horarios.docenteId, usuarios.id))
+        .where(eq(horarios.diaSemana, dia))
+        .orderBy(horarios.horaInicio);
+
+    return result;
 }
 
 export async function createHorario(data: any) {
@@ -297,12 +344,10 @@ export async function getAsistenciaByClaseYFecha(horarioId: string, fecha: strin
 
         return registro || null;
     } catch (error) {
-        console.error("Error in getAsistenciaByClaseYFecha:", error);
         return null;
     }
 }
 
-// --- AUTENTICACION ---
 // --- AUTENTICACION ---
 export async function loginUser(formData: FormData) {
     try {
@@ -313,7 +358,22 @@ export async function loginUser(formData: FormData) {
             return { error: "Por favor, completa todos los campos" };
         }
 
-        const [user] = await db.select().from(usuarios).where(eq(usuarios.usuario, usuario));
+        let user: any;
+        try {
+            const results = await db.select({
+                id: usuarios.id,
+                nombre: usuarios.nombre,
+                usuario: usuarios.usuario,
+                password: usuarios.password,
+                rol: usuarios.rol,
+                departamentoId: usuarios.departamentoId, // Seleccionamos explícitamente el ID
+            }).from(usuarios).where(eq(usuarios.usuario, usuario));
+            user = results[0];
+        } catch (e) {
+            // Fallback si falla el select específico
+            const results = await db.select().from(usuarios).where(eq(usuarios.usuario, usuario));
+            user = results[0];
+        }
 
         if (!user || !user.password) {
             return { error: "Usuario no encontrado o sin acceso" };
@@ -325,11 +385,28 @@ export async function loginUser(formData: FormData) {
             return { error: "Contraseña incorrecta" };
         }
 
+        // Obtener departamentoId y nombre del departamento
+        let deptId = user.departamentoId;
+        let deptNombre = null;
+
+        if (deptId) {
+            try {
+                const [d] = await db.select({ nombre: departamentos.nombre })
+                    .from(departamentos)
+                    .where(eq(departamentos.id, deptId));
+                deptNombre = d?.nombre;
+            } catch (e) {
+                console.error("Error recuperando nombre del departamento:", e);
+            }
+        }
+
         await login({
             id: user.id,
             nombre: user.nombre,
             usuario: user.usuario,
             rol: user.rol,
+            departamentoId: deptId,
+            departamento: deptNombre, // Guardamos el nombre real para el dashboard
         });
 
     } catch (error: any) {
@@ -349,51 +426,158 @@ export async function logoutUser() {
     redirect("/login");
 }
 
-export async function getUserSession() {
-    return await getSession();
+// --- DEPARTAMENTOS / COORDINACIONES ---
+export async function getDepartamentos() {
+    try {
+        return await db.query.departamentos.findMany({
+            orderBy: (d: any, { asc }: any) => [asc(d.nombre)],
+        });
+    } catch (e: any) {
+        // Fallback for missing table
+        const isMissingTable =
+            e.code === '42P01' ||
+            e.cause?.code === '42P01' ||
+            e.message?.includes('relation "departamentos" does not exist') ||
+            e.cause?.message?.includes('relation "departamentos" does not exist');
+
+        if (isMissingTable) {
+            return [
+                { id: "MEDIA_GENERAL", nombre: "Media General", codigo: "MG" },
+                { id: "MEDIA_BASICA", nombre: "Media Básica", codigo: "MB" },
+                { id: "ADMINISTRACION", nombre: "Administración", codigo: "ADM" },
+                { id: "DOCUMENTAL", nombre: "Documental", codigo: "DOC" },
+                { id: "TODOS", nombre: "Todos", codigo: "ALL" }
+            ];
+        }
+        console.error("Error al obtener departamentos:", e);
+        return [];
+    }
+}
+
+export async function createDepartamento(nombre: string, codigo?: string) {
+    try {
+        await db.insert(departamentos).values({ nombre, codigo });
+        revalidatePath("/dashboard/personal");
+        return { success: true, message: "Departamento creado correctamente" };
+    } catch (error) {
+        return { success: false, error: "Error al crear departamento" };
+    }
+}
+
+export async function updateDepartamento(id: string, nombre: string, codigo?: string) {
+    try {
+        await db.update(departamentos).set({ nombre, codigo }).where(eq(departamentos.id, id));
+        revalidatePath("/dashboard/personal");
+        return { success: true, message: "Departamento actualizado correctamente" };
+    } catch (error) {
+        return { success: false, error: "Error al actualizar departamento" };
+    }
+}
+
+// Helper to safely get departamentoId or departamento column
+async function safeQuery(table: any, selectObj: any, whereClause?: any) {
+    try {
+        // Try with new column first
+        let query = db.select(selectObj).from(table);
+        if (whereClause) query = query.where(whereClause) as any;
+        return await query;
+    } catch (e: any) {
+        // Fallback: If departamento_id fails, try mapping departamentoId to the 'departamento' column
+        const isMissingColumn = e.code === '42703' || e.cause?.code === '42703' || e.message?.includes("departamento_id");
+        if (isMissingColumn) {
+            try {
+                // Remove departamentoId from selectObj and add sql fragment
+                const fallbackSelect = { ...selectObj };
+                if (fallbackSelect.departamentoId) {
+                    fallbackSelect.departamentoId = sql<string>`departamento`;
+                }
+                let query = db.select(fallbackSelect).from(table);
+                if (whereClause) query = query.where(whereClause) as any;
+                return await query;
+            } catch (e2) {
+                // Final fallback: remove departamento info entirely
+                const finalSelect = { ...selectObj };
+                delete finalSelect.departamentoId;
+                let query = db.select(finalSelect).from(table);
+                if (whereClause) query = query.where(whereClause) as any;
+                return await query;
+            }
+        }
+        throw e;
+    }
 }
 
 export async function getUsuarios() {
     const session = await getSession();
     const userRole = session?.user?.rol;
-    const userDept = session?.user?.departamento || "MEDIA_GENERAL";
-    const isGlobalAdmin = userRole === "ADMINISTRADOR" || userDept === "TODOS";
+    const userDeptId = session?.user?.departamentoId;
+    const isGlobalAdmin = userRole === "ADMINISTRADOR" || !userDeptId;
 
-    if (isGlobalAdmin) {
-        return await db.query.usuarios.findMany({
-            orderBy: (u: any, { asc }: any) => [asc(u.nombre)],
-        });
+    try {
+        // Query with left join to get department name
+        const allUsers = await db
+            .select({
+                id: usuarios.id,
+                nombre: usuarios.nombre,
+                usuario: usuarios.usuario,
+                rol: usuarios.rol,
+                cedula: usuarios.cedula,
+                departamentoId: usuarios.departamentoId,
+                departamento: {
+                    id: departamentos.id,
+                    nombre: departamentos.nombre,
+                    codigo: departamentos.codigo
+                }
+            })
+            .from(usuarios)
+            .leftJoin(departamentos, eq(usuarios.departamentoId, departamentos.id));
+
+        // Apply role-based filtering
+        let filtered = allUsers;
+
+        if (!isGlobalAdmin) {
+            if (userRole === "COORDINADOR") {
+                const depts = await getDepartamentos();
+                const myDept = depts.find((d: any) => d.id === userDeptId);
+                if (myDept?.codigo === "ADM" || myDept?.nombre.toUpperCase().includes("ADMINISTRACION")) {
+                    filtered = allUsers.filter((u: any) => u.rol === "ADMINISTRATIVO" || u.rol === "OBRERO");
+                } else {
+                    filtered = allUsers.filter((u: any) =>
+                        (u.rol === "DOCENTE" || u.rol === "COORDINADOR") &&
+                        String(u.departamentoId) === String(userDeptId)
+                    );
+                }
+            } else {
+                filtered = allUsers.filter((u: any) =>
+                    (u.rol === "DOCENTE" || u.rol === "COORDINADOR") &&
+                    String(u.departamentoId) === String(userDeptId)
+                );
+            }
+        }
+
+        return filtered.sort((a: any, b: any) => a.nombre.localeCompare(b.nombre));
+    } catch (e) {
+        console.error("Error en getUsuarios:", e);
+        // Fallback to basic query without join
+        const baseSelect: any = {
+            id: usuarios.id,
+            nombre: usuarios.nombre,
+            usuario: usuarios.usuario,
+            rol: usuarios.rol,
+            cedula: usuarios.cedula,
+            departamentoId: usuarios.departamentoId
+        };
+        const all = await safeQuery(usuarios, baseSelect);
+        return all.sort((a: any, b: any) => a.nombre.localeCompare(b.nombre));
     }
-
-    // Filter logic for Coordinators
-    if (userDept === "ADMINISTRACION") {
-        // Admin coord sees Admin + Obreros
-        return await db.query.usuarios.findMany({
-            where: (u: any, { inArray }: any) => inArray(u.rol, ["ADMINISTRATIVO", "OBRERO"]),
-            orderBy: (u: any, { asc }: any) => [asc(u.nombre)],
-        });
-    }
-
-    // Academic coords see Docentes + Maybe their own team? 
-    // Usually academic coords manage Teachers (Docentes).
-    return await db.query.usuarios.findMany({
-        where: (u: any, { eq, and, or, inArray }: any) => and(
-            or(
-                eq(u.departamento, userDept),
-                eq(u.departamento, "TODOS") // Visible items
-            ),
-            inArray(u.rol, ["DOCENTE", "COORDINADOR"])
-        ),
-        orderBy: (u: any, { asc }: any) => [asc(u.nombre)],
-    });
 }
 
 export async function createUsuario(formData: FormData) {
     const nombre = formData.get("nombre") as string;
     const usuario = formData.get("usuario") as string;
     const password = formData.get("password") as string;
-    const rol = formData.get("rol") as "ADMINISTRADOR" | "COORDINADOR" | "DOCENTE" | "ADMINISTRATIVO" | "OBRERO";
-    const departamento = formData.get("departamento") as "MEDIA_GENERAL" | "MEDIA_BASICA" | "ADMINISTRACION" | "TODOS";
+    const rol = formData.get("rol") as any;
+    const departamentoId = formData.get("departamentoId") as string;
     const cedula = formData.get("cedula") as string;
     const grantAccess = formData.get("grantAccess") === "true";
 
@@ -412,7 +596,7 @@ export async function createUsuario(formData: FormData) {
             usuario: finalUsuario,
             password: hashedPassword,
             rol,
-            departamento: departamento || "MEDIA_GENERAL", // Default to Media General if missing
+            departamentoId: departamentoId || null,
             cedula
         });
         revalidatePath("/dashboard/personal");
@@ -428,13 +612,13 @@ export async function updateUsuario(id: string, formData: FormData) {
     const nombre = formData.get("nombre") as string;
     const usuario = formData.get("usuario") as string;
     const password = formData.get("password") as string;
-    const rol = formData.get("rol") as "ADMINISTRADOR" | "COORDINADOR" | "DOCENTE" | "ADMINISTRATIVO" | "OBRERO";
-    const departamento = formData.get("departamento") as "MEDIA_GENERAL" | "MEDIA_BASICA" | "ADMINISTRACION" | "TODOS";
+    const rol = formData.get("rol") as any;
+    const departamentoId = formData.get("departamentoId") as string;
     const cedula = formData.get("cedula") as string;
     const grantAccess = formData.get("grantAccess") === "true";
 
     try {
-        const updateData: any = { nombre, rol, cedula, departamento };
+        const updateData: any = { nombre, rol, cedula, departamentoId: departamentoId || null };
 
         if (grantAccess) {
             if (usuario) updateData.usuario = usuario;
@@ -442,8 +626,6 @@ export async function updateUsuario(id: string, formData: FormData) {
                 updateData.password = await bcrypt.hash(password, 10);
             }
         } else {
-            // Revoke access if unchecked? Or just ignore? 
-            // For now, let's assume if grantAccess is false, we clear credentials.
             updateData.usuario = null;
             updateData.password = null;
         }
@@ -568,7 +750,7 @@ export async function upsertAsistenciaDocente(data: { docenteId: string; present
         return { error: "No autorizado" };
     }
 
-    const fechaFinal = data.fecha || new Date().toISOString().split('T')[0];
+    const fechaFinal = data.fecha || getVenezuelaDate();
 
     try {
         const existing = await db
@@ -738,7 +920,7 @@ export async function getDashboardData() {
     const session = await getSession();
     if (!session) redirect("/login");
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getVenezuelaDate();
     const userRole = session.user.rol;
     const userDept = session.user.departamento || "MEDIA_GENERAL"; // Fallback
     const isGlobalAdmin = userRole === "ADMINISTRADOR" || userDept === "TODOS";
@@ -803,10 +985,13 @@ export async function getDashboardData() {
 
         // --- ACADEMIC COORDINATION VIEW (MEDIA GENERAL / MEDIA BASICA / GLOBAL) ---
 
+        const userDeptId = session?.user?.departamentoId;
+
         // Helper filter for sections based on department
-        const sectionFilter = isGlobalAdmin
+        // Si es Admin o no tiene depto, ve todo. Si no, filtra por su departamentoId.
+        const sectionFilter = (isGlobalAdmin || !userDeptId)
             ? sql`1=1`
-            : eq(secciones.departamento, userDept);
+            : eq(secciones.departamentoId, userDeptId);
 
         // 1. Matrícula por género (total matriculados)
         const [estudiantesVaronesRes, estudiantesHembrasRes] = await Promise.all([
@@ -817,7 +1002,7 @@ export async function getDashboardData() {
                     eq(estudiantes.genero, "VARON"),
                     sectionFilter
                 ))
-                .catch(() => [{ count: 0 }]),
+                .catch(() => [{ count: 0 }] as any[]),
             db.select({ count: count() })
                 .from(estudiantes)
                 .innerJoin(secciones, eq(estudiantes.seccionId, secciones.id))
@@ -825,7 +1010,7 @@ export async function getDashboardData() {
                     eq(estudiantes.genero, "HEMBRA"),
                     sectionFilter
                 ))
-                .catch(() => [{ count: 0 }])
+                .catch(() => [{ count: 0 }] as any[])
         ]);
 
         const totalVarones = Number(estudiantesVaronesRes[0]?.count ?? 0);
@@ -928,7 +1113,7 @@ export async function getDashboardData() {
                     eq(horarios.diaSemana, hoyDia as any),
                     sectionFilter
                 ))
-                .catch(() => []),
+                .catch(() => [] as any[]),
             // Docentes que reportaron hoy en este Dept
             db
                 .selectDistinct({ docenteId: horarios.docenteId })
@@ -939,15 +1124,7 @@ export async function getDashboardData() {
                     eq(registrosAsistencia.fecha, today),
                     sectionFilter
                 ))
-                .catch(() => []),
-            // Docentes ausentes HOY (Global list? Or filtered?)
-            // Ideally filtered by user dept, but docentes are shared?
-            // Let's filter docentes by who are in this dept's classes schedule?
-            // Re-using the attendance table logic might be tricky.
-            // Simplified: Docentes tracked in asistenciaDocentes. 
-            // We can check if the docente belongs to this department? 
-            // Or just show all if we assume docentes are assigned to departments?
-            // Schema has usuario.departamento. let's use that.
+                .catch(() => [] as any[]),
             db
                 .select({
                     nombre: usuarios.nombre,
@@ -959,10 +1136,10 @@ export async function getDashboardData() {
                     and(
                         eq(asistenciaDocentes.fecha, today),
                         eq(asistenciaDocentes.presente, false),
-                        isGlobalAdmin ? sql`1=1` : eq(usuarios.departamento, userDept)
+                        (isGlobalAdmin || !userDeptId) ? sql`1=1` : eq(usuarios.departamentoId, userDeptId)
                     )
                 )
-                .catch(() => [])
+                .catch(() => [] as any[])
         ]);
 
         const totalDocentesConClasesHoy = docentesConClasesHoyRes.length;
@@ -986,7 +1163,7 @@ export async function getDashboardData() {
                 materia: materias.nombre,
                 docente: usuarios.nombre,
                 descripcion: horarios.descripcion,
-                hora: sql<string>`${horarios.horaInicio} || ' - ' || ${horarios.horaFin}`,
+                hora: sql<string>`cast(${horarios.horaInicio} as text) || ' - ' || cast(${horarios.horaFin} as text)`,
                 estado: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM ${registrosAsistencia} WHERE ${registrosAsistencia.horarioId} = ${horarios.id} AND ${registrosAsistencia.fecha} = ${today}) THEN 'Completado' ELSE 'Pendiente' END`
             })
             .from(horarios)
@@ -996,7 +1173,7 @@ export async function getDashboardData() {
             .where(
                 and(
                     eq(horarios.diaSemana, hoyDia as any),
-                    sectionFilter // Filter by Dept
+                    userRole === "DOCENTE" ? eq(horarios.docenteId, session.user.id) : sectionFilter
                 )
             )
             .orderBy(horarios.horaInicio);
@@ -1140,31 +1317,65 @@ export async function bulkCreateEstudiantes(data: { nombre: string; numeroLista:
     }
 }
 
-export async function bulkCreateUsuarios(data: { nombre: string; usuario?: string; password?: string; rol: "ADMINISTRADOR" | "COORDINADOR" | "DOCENTE" | "ADMINISTRATIVO" | "OBRERO"; cedula?: string }[]) {
+export async function bulkCreateUsuarios(data: {
+    nombre: string;
+    usuario?: string;
+    password?: string;
+    rol: "ADMINISTRADOR" | "COORDINADOR" | "DOCENTE" | "ADMINISTRATIVO" | "OBRERO";
+    cedula?: string;
+    departamento?: string; // Name or code
+    grantAccess?: boolean;
+}[]) {
     try {
         if (data.length === 0) return { success: false, error: "No hay datos para importar" };
+
+        // Pre-fetch departments to map names to IDs
+        const allDepts = await db.query.departamentos.findMany();
 
         const preparedData = await Promise.all(
             data.map(async (u) => {
                 let hashedPassword = null;
-                if (u.password) {
+                let finalUsuario = u.usuario || null;
+
+                // Explicit grantAccess check from file or presence of credentials
+                const hasAccess = u.grantAccess ?? (!!u.usuario && !!u.password);
+
+                if (hasAccess && u.password) {
                     hashedPassword = await bcrypt.hash(u.password, 10);
+                } else {
+                    finalUsuario = null;
+                    hashedPassword = null;
                 }
+
+                // Map departamento name/code to ID
+                let deptId = null;
+                if (u.departamento) {
+                    const dept = allDepts.find((d: any) =>
+                        d.nombre.toLowerCase() === u.departamento?.toLowerCase() ||
+                        d.codigo?.toLowerCase() === u.departamento?.toLowerCase()
+                    );
+                    deptId = dept?.id || null;
+                }
+
                 return {
                     nombre: u.nombre,
-                    usuario: u.usuario || null,
+                    usuario: finalUsuario,
                     password: hashedPassword,
                     rol: u.rol,
-                    cedula: u.cedula
+                    cedula: u.cedula || null,
+                    departamentoId: deptId
                 };
             })
         );
 
+        // Filter out existing users by Cédula or Usuario if they exist? 
+        // For simplicity, using onConflictDoNothing on 'usuario'. 
+        // Note: If no 'usuario', it might duplicate. Cedric recommends checking Cedula too if applicable.
         await db.insert(usuarios).values(preparedData).onConflictDoNothing({ target: usuarios.usuario });
 
         revalidatePath("/dashboard/usuarios");
         revalidatePath("/dashboard/personal");
-        return { success: true, message: "Personal importado correctamente" };
+        return { success: true, message: `${preparedData.length} registros procesados correctamente` };
     } catch (error) {
         console.error("Error bulk create usuarios:", error);
         return { success: false, error: "Error al importar personal." };

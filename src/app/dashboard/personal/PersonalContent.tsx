@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, Users, UserCog, UserX, Shield, ShieldAlert, KeyRound, Search, Filter } from "lucide-react";
+import { UserPlus, Users, UserCog, UserX, Shield, ShieldAlert, KeyRound, Search, Filter, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { deleteUsuario } from "@/lib/actions";
 import { toast } from "sonner";
 import { DeleteConfirmModal } from "@/components/common/DeleteConfirmModal";
 import { PersonalModal } from "./PersonalModal";
 import { BulkUsuarioUploadModal } from "../usuarios/BulkUsuarioUploadModal";
+import { DepartamentoManagerModal } from "./DepartamentoManagerModal";
 
 interface PersonalContentProps {
     session: any;
@@ -22,6 +23,7 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingPersonal, setEditingPersonal] = useState<any>(null);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
 
     const filteredPersonal = initialPersonal.filter(p => {
         const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -55,10 +57,17 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
                         Recursos Humanos
                     </div>
                     <h2 className="text-3xl font-bold tracking-tight">Gestión de Personal</h2>
-                    <p className="text-sm text-muted-foreground">Administre docentes, administrativos y obreros.</p>
+                    <p className="text-sm text-muted-foreground">Administre docentes, coordinadores y personal de apoyo.</p>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
+                    <button
+                        onClick={() => setIsDeptModalOpen(true)}
+                        className="flex items-center gap-2 bg-card border border-border/40 text-muted-foreground px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:text-primary hover:border-primary/20 transition-all active:scale-95"
+                    >
+                        <Layers className="w-4 h-4" />
+                        Coordinaciones
+                    </button>
                     <button
                         onClick={() => setIsUploadModalOpen(true)}
                         className="flex items-center gap-2 bg-card border border-border/40 text-muted-foreground px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:text-foreground hover:bg-accent/50 transition-all active:scale-95"
@@ -87,7 +96,7 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
                         placeholder="Buscar por nombre, cédula o usuario..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                        className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all font-medium"
                     />
                 </div>
                 <div className="relative w-full md:w-64">
@@ -95,7 +104,7 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
                     <select
                         value={filterRole}
                         onChange={(e) => setFilterRole(e.target.value)}
-                        className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-10 pr-10 text-sm appearance-none focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                        className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-10 pr-10 text-sm appearance-none focus:ring-2 focus:ring-primary/20 outline-none transition-all font-bold"
                     >
                         <option value="ALL">Todos los Roles</option>
                         <option value="DOCENTE">Docentes</option>
@@ -129,9 +138,14 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
                                 </div>
                                 <div>
                                     <p className="font-bold text-lg leading-tight line-clamp-1">{person.nombre}</p>
-                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                                        {person.cedula ? `V-${person.cedula}` : "Sin Cédula"}
-                                    </p>
+                                    <div className="flex flex-col gap-0.5">
+                                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            {person.cedula ? `V-${person.cedula}` : "Sin Cédula"}
+                                        </p>
+                                        <p className="text-[10px] font-black text-primary/60 uppercase tracking-tighter italic">
+                                            {person.departamento?.nombre || "Sin Asignar"}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                             <span className={cn(
@@ -147,7 +161,7 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
                                 {person.usuario ? (
                                     <div className="flex items-center gap-1.5 text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md">
                                         <Shield className="w-3 h-3" />
-                                        Acceso: @{person.usuario}
+                                        @{person.usuario}
                                     </div>
                                 ) : (
                                     <div className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest bg-gray-50 px-2 py-1 rounded-md">
@@ -192,6 +206,15 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
                     setEditingPersonal(null);
                 }}
                 editingPersonal={editingPersonal}
+                onManageDepartments={() => {
+                    setIsFormModalOpen(false);
+                    setIsDeptModalOpen(true);
+                }}
+            />
+
+            <DepartamentoManagerModal
+                isOpen={isDeptModalOpen}
+                onClose={() => setIsDeptModalOpen(false)}
             />
 
             <DeleteConfirmModal
@@ -212,3 +235,4 @@ export function PersonalContent({ session, initialPersonal }: PersonalContentPro
         </div>
     );
 }
+

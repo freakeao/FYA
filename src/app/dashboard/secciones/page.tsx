@@ -1,13 +1,14 @@
 import { LayoutGrid, Plus } from "lucide-react";
 import { SeccionesContent } from "./SeccionesContent";
-import { getSecciones, getUsuarios } from "@/lib/actions";
+import { getSecciones, getUsuarios, getDepartamentos } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function GestionSeccionesPage() {
-    const [secciones, usuarios] = await Promise.all([
+    const [secciones, usuarios, departamentos] = await Promise.all([
         getSecciones(),
-        getUsuarios()
+        getUsuarios(),
+        getDepartamentos()
     ]);
 
     const docentes = usuarios.filter((u: any) => u.rol === 'DOCENTE' || u.rol === 'COORDINADOR');
@@ -25,7 +26,7 @@ export default async function GestionSeccionesPage() {
                 </div>
             </div>
 
-            <SeccionesContent initialSecciones={secciones} docentes={docentes} />
+            <SeccionesContent initialSecciones={secciones} docentes={docentes} departamentos={departamentos} />
         </div >
     );
 }

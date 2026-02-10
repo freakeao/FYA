@@ -6,13 +6,20 @@ export const generoEnum = pgEnum("genero", ["HEMBRA", "VARON"]);
 export const diaSemanaEnum = pgEnum("dia_semana", ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO", "DOMINGO"]);
 export const departamentoEnum = pgEnum("departamento", ["MEDIA_GENERAL", "MEDIA_BASICA", "ADMINISTRACION", "DOCUMENTAL", "TODOS"]);
 
+export const departamentos = pgTable("departamentos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  nombre: text("nombre").notNull(),
+  codigo: text("codigo").unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const usuarios = pgTable("usuarios", {
   id: uuid("id").primaryKey().defaultRandom(),
   nombre: text("nombre").notNull(),
   usuario: text("usuario").unique(), // Nullable for staff without access
   password: text("password"), // Nullable
   rol: rolEnum("rol").notNull(),
-  departamento: departamentoEnum("departamento").default("MEDIA_GENERAL"), // New Scope Field
+  departamentoId: uuid("departamento_id").references(() => departamentos.id, { onDelete: "set null" }),
   cedula: text("cedula"), // Cédula de identidad
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -21,7 +28,7 @@ export const secciones = pgTable("secciones", {
   id: uuid("id").primaryKey().defaultRandom(),
   nombre: text("nombre").notNull(),
   grado: text("grado").notNull(),
-  departamento: departamentoEnum("departamento").default("MEDIA_GENERAL").notNull(), // Linked to coordination
+  departamentoId: uuid("departamento_id").references(() => departamentos.id, { onDelete: "set null" }),
   docenteGuiaId: uuid("docente_guia_id").references(() => usuarios.id, { onDelete: "set null" }),
 });
 
@@ -83,7 +90,16 @@ export const asistenciaDocentes = pgTable("asistencia_docentes", {
 
 // --- RELATIONS ---
 
-export const usuariosRelations = relations(usuarios, ({ many }) => ({
+export const departamentosRelations = relations(departamentos, ({ many }) => ({
+  usuarios: many(usuarios),
+  secciones: many(secciones),
+}));
+
+export const usuariosRelations = relations(usuarios, ({ one, many }) => ({
+  departamento: one(departamentos, {
+    fields: [usuarios.departamentoId],
+    references: [departamentos.id],
+  }),
   secciones: many(secciones),
   horarios: many(horarios),
 }));
@@ -92,6 +108,10 @@ export const seccionesRelations = relations(secciones, ({ one, many }) => ({
   docenteGuia: one(usuarios, {
     fields: [secciones.docenteGuiaId],
     references: [usuarios.id],
+  }),
+  departamento: one(departamentos, {
+    fields: [secciones.departamentoId],
+    references: [departamentos.id],
   }),
   estudiantes: many(estudiantes),
   horarios: many(horarios),

@@ -62,6 +62,7 @@ export default async function AsistenciaPersonalPage({ searchParams }: { searchP
             </header>
 
             <AsistenciaPersonalContent
+                key={fechaSeleccionada}
                 docentes={personalConHorarios}
                 asistenciaInicial={asistenciaHoy}
                 selectedDate={fechaSeleccionada}

@@ -21,9 +21,10 @@ import { SeccionModal } from "./SeccionFormModal";
 interface SeccionesContentProps {
     initialSecciones: any[];
     docentes: any[];
+    departamentos: any[];
 }
 
-export function SeccionesContent({ initialSecciones, docentes }: SeccionesContentProps) {
+export function SeccionesContent({ initialSecciones, docentes, departamentos }: SeccionesContentProps) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
 
@@ -65,7 +66,7 @@ export function SeccionesContent({ initialSecciones, docentes }: SeccionesConten
                         placeholder="Buscar sección o docente..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
+                        className="w-full bg-card border border-border/40 rounded-2xl py-3 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm font-medium"
                     />
                 </div>
 
@@ -183,6 +184,7 @@ export function SeccionesContent({ initialSecciones, docentes }: SeccionesConten
                     setEditingSeccion(null);
                 }}
                 docentes={docentes}
+                departamentos={departamentos}
                 editingSeccion={editingSeccion}
             />
 
@@ -199,3 +201,4 @@ export function SeccionesContent({ initialSecciones, docentes }: SeccionesConten
         </div>
     );
 }
+

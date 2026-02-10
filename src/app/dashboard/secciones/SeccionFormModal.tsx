@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { createSeccion, updateSeccion } from "@/lib/actions";
 import { toast } from "sonner";
-import { GraduationCap, User, BookOpen } from "lucide-react";
+import { GraduationCap, User, BookOpen, Users } from "lucide-react";
 
 interface SeccionModalProps {
     isOpen: boolean;
     onClose: () => void;
     docentes: any[];
+    departamentos: any[];
     editingSeccion?: any;
 }
 
@@ -17,13 +18,15 @@ export function SeccionModal({
     isOpen,
     onClose,
     docentes,
+    departamentos,
     editingSeccion
 }: SeccionModalProps) {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         nombre: "",
         grado: "",
-        docenteGuiaId: ""
+        docenteGuiaId: "",
+        departamentoId: ""
     });
 
     useEffect(() => {
@@ -31,13 +34,15 @@ export function SeccionModal({
             setFormData({
                 nombre: editingSeccion.nombre || "",
                 grado: editingSeccion.grado || "",
-                docenteGuiaId: editingSeccion.docenteGuiaId || ""
+                docenteGuiaId: editingSeccion.docenteGuiaId || "",
+                departamentoId: editingSeccion.departamentoId || ""
             });
         } else {
             setFormData({
                 nombre: "",
                 grado: "",
-                docenteGuiaId: ""
+                docenteGuiaId: "",
+                departamentoId: ""
             });
         }
     }, [editingSeccion, isOpen]);
@@ -89,10 +94,10 @@ export function SeccionModal({
                         </div>
                     </div>
 
-                    {/* Grado */}
+                    {/* Grado / Nivel */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                            Grado / Nivel
+                            Grado / Nivel / Año
                         </label>
                         <div className="relative group">
                             <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors">
@@ -101,11 +106,36 @@ export function SeccionModal({
                             <input
                                 required
                                 type="text"
-                                placeholder="Ej: media-general"
+                                placeholder="Ej: 1er Año, 2do Año, etc."
                                 value={formData.grado}
                                 onChange={(e) => setFormData({ ...formData, grado: e.target.value })}
                                 className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
                             />
+                        </div>
+                    </div>
+
+                    {/* Departamento / Coordinación */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                            Departamento / Coordinación
+                        </label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
+                                <Users className="w-full h-full" />
+                            </div>
+                            <select
+                                required
+                                value={formData.departamentoId}
+                                onChange={(e) => setFormData({ ...formData, departamentoId: e.target.value })}
+                                className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold appearance-none cursor-pointer"
+                            >
+                                <option value="">Seleccione coordinación...</option>
+                                {departamentos.map((d) => (
+                                    <option key={d.id} value={d.id} className="bg-card text-foreground">
+                                        {d.nombre}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
@@ -154,3 +184,4 @@ export function SeccionModal({
         </Modal>
     );
 }
+

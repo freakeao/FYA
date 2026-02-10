@@ -77,6 +77,7 @@ export function ClassCarousel({ classes }: ClassCarouselProps) {
                             >
                                 <Link
                                     href={`/dashboard/asistencia`}
+                                    suppressHydrationWarning
                                     className="flex flex-col justify-between h-full p-4 rounded-2xl border border-border/40 hover:border-primary/30 hover:bg-primary/[0.02] transition-all group/item bg-card/50"
                                 >
                                     <div className="space-y-3">

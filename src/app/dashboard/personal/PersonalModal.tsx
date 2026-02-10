@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Check, Loader2, User, Lock, KeyRound, Shield, FileText } from "lucide-react";
-import { createUsuario, updateUsuario } from "@/lib/actions";
+import { X, Check, Loader2, User, Lock, KeyRound, Shield, ListTodo, PlusCircle } from "lucide-react";
+import { createUsuario, updateUsuario, getDepartamentos } from "@/lib/actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -10,49 +10,59 @@ interface PersonalModalProps {
     isOpen: boolean;
     onClose: () => void;
     editingPersonal?: any;
+    onManageDepartments?: () => void;
 }
 
-export function PersonalModal({ isOpen, onClose, editingPersonal }: PersonalModalProps) {
+export function PersonalModal({ isOpen, onClose, editingPersonal, onManageDepartments }: PersonalModalProps) {
     const [loading, setLoading] = useState(false);
     const [grantAccess, setGrantAccess] = useState(false);
+    const [departamentos, setDepartamentos] = useState<any[]>([]);
 
     // Form States
     const [nombre, setNombre] = useState("");
     const [cedula, setCedula] = useState("");
     const [rol, setRol] = useState("DOCENTE");
-    const [departamento, setDepartamento] = useState("MEDIA_GENERAL");
+    const [departamentoId, setDepartamentoId] = useState("");
 
     // Access States
     const [usuario, setUsuario] = useState("");
     const [password, setPassword] = useState("");
 
     useEffect(() => {
-        if (editingPersonal) {
-            setNombre(editingPersonal.nombre);
-            setCedula(editingPersonal.cedula || "");
-            setRol(editingPersonal.rol);
-            setDepartamento(editingPersonal.departamento || "MEDIA_GENERAL");
+        if (isOpen) {
+            fetchDepts();
+            if (editingPersonal) {
+                setNombre(editingPersonal.nombre);
+                setCedula(editingPersonal.cedula || "");
+                setRol(editingPersonal.rol);
+                setDepartamentoId(editingPersonal.departamentoId || "");
 
-            if (editingPersonal.usuario) {
-                setGrantAccess(true);
-                setUsuario(editingPersonal.usuario);
-                setPassword(""); // Allow password reset
+                if (editingPersonal.usuario) {
+                    setGrantAccess(true);
+                    setUsuario(editingPersonal.usuario);
+                    setPassword(""); // Allow password reset
+                } else {
+                    setGrantAccess(false);
+                    setUsuario("");
+                    setPassword("");
+                }
             } else {
+                // Reset for new
+                setNombre("");
+                setCedula("");
+                setRol("DOCENTE");
+                setDepartamentoId("");
                 setGrantAccess(false);
                 setUsuario("");
                 setPassword("");
             }
-        } else {
-            // Reset for new
-            setNombre("");
-            setCedula("");
-            setRol("DOCENTE");
-            setDepartamento("MEDIA_GENERAL");
-            setGrantAccess(false);
-            setUsuario("");
-            setPassword("");
         }
     }, [editingPersonal, isOpen]);
+
+    async function fetchDepts() {
+        const data = await getDepartamentos();
+        setDepartamentos(data);
+    }
 
     if (!isOpen) return null;
 
@@ -64,7 +74,7 @@ export function PersonalModal({ isOpen, onClose, editingPersonal }: PersonalModa
         formData.append("nombre", nombre);
         formData.append("cedula", cedula);
         formData.append("rol", rol);
-        formData.append("departamento", departamento);
+        formData.append("departamentoId", departamentoId);
         formData.append("grantAccess", grantAccess.toString());
 
         if (grantAccess) {
@@ -136,28 +146,35 @@ export function PersonalModal({ isOpen, onClose, editingPersonal }: PersonalModa
                                     required
                                     value={rol}
                                     onChange={e => setRol(e.target.value)}
-                                    className="w-full bg-accent/20 border border-border/40 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none appearance-none"
+                                    className="w-full bg-accent/20 border border-border/40 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none appearance-none font-bold"
                                 >
                                     <option value="DOCENTE">Docente</option>
                                     <option value="COORDINADOR">Coordinador</option>
                                     <option value="ADMINISTRATIVO">Administrativo</option>
-                                    <option value="OBRERO">Obrero / Ambientalista</option>
+                                    <option value="OBRERO">Obrero / Ambientalistas</option>
                                     <option value="ADMINISTRADOR">Administrador</option>
                                 </select>
                             </div>
                             <div className="space-y-2 col-span-2">
-                                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Departamento / Coordinación</label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Coordinación / Depto</label>
+                                    <button
+                                        type="button"
+                                        onClick={onManageDepartments}
+                                        className="text-[10px] text-primary font-black uppercase tracking-widest flex items-center gap-1 hover:underline"
+                                    >
+                                        <PlusCircle className="w-3 h-3" /> Configurar
+                                    </button>
+                                </div>
                                 <select
-                                    required
-                                    value={departamento}
-                                    onChange={e => setDepartamento(e.target.value)}
-                                    className="w-full bg-accent/20 border border-border/40 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none appearance-none"
+                                    value={departamentoId}
+                                    onChange={e => setDepartamentoId(e.target.value)}
+                                    className="w-full bg-accent/20 border border-border/40 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none appearance-none font-bold"
                                 >
-                                    <option value="MEDIA_GENERAL">Media General (1er a 5to Año)</option>
-                                    <option value="MEDIA_BASICA">Media Básica / Especial</option>
-                                    <option value="ADMINISTRACION">Administración y Servicios</option>
-                                    <option value="DOCUMENTAL">Control de Estudios / Documental</option>
-                                    <option value="TODOS">Global (Acceso a todo)</option>
+                                    <option value="">Sin Asignar (Global)</option>
+                                    {departamentos.map(d => (
+                                        <option key={d.id} value={d.id}>{d.nombre}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -187,9 +204,8 @@ export function PersonalModal({ isOpen, onClose, editingPersonal }: PersonalModa
                                 />
                             </button>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">
-                            Habilite esta opción si esta persona necesita iniciar sesión en la plataforma (ej. Docentes, Coordinadores).
-                            Personas como obreros o vigilantes usualmente no requieren acceso.
+                        <p className="text-[10px] text-muted-foreground italic">
+                            Habilite para permitir inicio de sesión. Credenciales para docentes y coordinadores.
                         </p>
 
                         {grantAccess && (
