@@ -13,6 +13,7 @@ import { getDashboardData } from "@/lib/actions";
 import { getSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { ClassCarousel } from "@/components/dashboard/ClassCarousel";
+import { DashboardStatsGrid } from "@/components/dashboard/DashboardStatsGrid";
 
 const Icon = GraduationCap;
 
@@ -43,51 +44,7 @@ export default async function DashboardPage() {
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <StatsCard
-                    title={data.stats.matricula.label || "Total Alumnos"}
-                    value={data.stats.matricula.total.toString()}
-                    description={data.viewType === "ADMINISTRATIVE" ? "Personal registrado" : "Matrícula activa"}
-                    icon={Users}
-                    color="primary"
-                    breakdown={data.viewType !== "ADMINISTRATIVE" ? `👨 V: ${data.stats.matricula.hombres}  |  👩 H: ${data.stats.matricula.mujeres}` : undefined}
-                />
-                <StatsCard
-                    title={data.stats.asistenciaHoy.label || "Asistencia Hoy"}
-                    value={data.stats.asistenciaHoy.porcentaje}
-                    description={`${data.stats.asistenciaHoy.presentes} presentes de ${data.stats.asistenciaHoy.presentes + data.stats.asistenciaHoy.ausentes} reportados`}
-                    icon={UserCheck}
-                    color="secondary"
-                    breakdown={data.viewType !== "ADMINISTRATIVE" ? `👨 V: ${data.stats.asistenciaHoy.presentesHombres}  |  👩 H: ${data.stats.asistenciaHoy.presentesMujeres}` : undefined}
-                />
-                <StatsCard
-                    title="Inasistencias"
-                    value={data.stats.asistenciaHoy.ausentes.toString()}
-                    description={data.viewType === "ADMINISTRATIVE" ? "Personal ausente" : "Alumnos ausentes"}
-                    icon={UserMinus}
-                    color="primary"
-                    breakdown={data.viewType !== "ADMINISTRATIVE" ? `👨 V: ${data.stats.asistenciaHoy.ausentesHombres}  |  👩 H: ${data.stats.asistenciaHoy.ausentesMujeres}` : undefined}
-                />
-                {data.viewType !== "ADMINISTRATIVE" && (
-                    <StatsCard
-                        title="Sin Reporte"
-                        value={data.stats.reporteDocentes.estudiantesSinReporte?.toString() || "0"}
-                        description="Alumnos por reportar"
-                        icon={ClipboardCheck}
-                        color="secondary"
-                        breakdown={`⚠ Docentes pendientes: ${data.stats.reporteDocentes.docentesSinReporte}`}
-                    />
-                )}
-                {data.viewType === "ADMINISTRATIVE" && (
-                    <StatsCard
-                        title="Reportes"
-                        value="Activo"
-                        description="Monitor de jornada"
-                        icon={ClipboardCheck}
-                        color="secondary"
-                    />
-                )}
-            </div>
+            <DashboardStatsGrid data={data} userRole={userRole} />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 {/* Section for Teachers: Their classes (HIDDEN FOR ADMIN COORD) */}
@@ -171,52 +128,5 @@ export default async function DashboardPage() {
     );
 }
 
-function StatsCard({ title, value, description, icon: Icon, trend, trendNegative, color = "primary", breakdown }: any) {
-    const isPrimary = color === "primary";
 
-    return (
-        <div className={cn(
-            "premium-card p-6 rounded-3xl relative overflow-hidden group border-t-4",
-            isPrimary ? "border-t-primary" : "border-t-secondary"
-        )}>
-            {/* Background Gradient - SUBTLE GRAY/WHITE */}
-            <div className="absolute inset-0 opacity-[0.4] pointer-events-none bg-gradient-to-br from-white/40 to-slate-100/40 dark:from-slate-900/40 dark:to-slate-800/40" />
-
-            <div className="absolute top-0 right-0 w-24 h-24 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110 opacity-5 bg-slate-200 dark:bg-slate-700" />
-
-            <div className="flex items-center justify-between mb-4 relative z-10">
-                <div className={cn(
-                    "p-3 rounded-2xl transition-colors border",
-                    isPrimary
-                        ? "bg-white border-primary/20 text-primary shadow-sm"
-                        : "bg-white border-orange-200 text-orange-600 shadow-sm"
-                )}>
-                    <Icon className="w-5 h-5" />
-                </div>
-                {trend && (
-                    <div className={cn(
-                        "flex items-center gap-1 text-[10px] font-black py-1.5 px-2.5 rounded-full uppercase tracking-wider",
-                        trendNegative ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600"
-                    )}>
-                        <TrendingUp className={cn("w-3 h-3", trendNegative && "rotate-180")} />
-                        {trend}
-                    </div>
-                )}
-            </div>
-            <div className="space-y-1 relative z-10">
-                <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest text-[10px]">{title}</p>
-                <p className={cn(
-                    "text-4xl font-black tracking-tighter",
-                    isPrimary ? "text-foreground" : "text-foreground"
-                )}>{value}</p>
-                <p className="text-xs text-muted-foreground font-medium">{description}</p>
-                {breakdown && (
-                    <p className="text-xs font-black text-foreground/70 uppercase tracking-wider mt-3 pt-3 border-t border-border/40">
-                        {breakdown}
-                    </p>
-                )}
-            </div>
-        </div>
-    );
-}
 

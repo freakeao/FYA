@@ -141,9 +141,12 @@ export function SeccionModal({
 
                     {/* Docente Guia */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                            Docente Guía
-                        </label>
+                        <div className="flex justify-between items-center ml-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                Docente Guía
+                            </label>
+                            <span className="text-[8px] font-bold text-muted-foreground/60 uppercase tracking-widest bg-muted/50 px-2 py-0.5 rounded-md">Opcional</span>
+                        </div>
                         <div className="relative group">
                             <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
                                 <User className="w-full h-full" />
@@ -151,9 +154,9 @@ export function SeccionModal({
                             <select
                                 value={formData.docenteGuiaId}
                                 onChange={(e) => setFormData({ ...formData, docenteGuiaId: e.target.value })}
-                                className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold appearance-none cursor-pointer"
+                                className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold appearance-none cursor-pointer hover:bg-accent/50"
                             >
-                                <option value="">Seleccione un docente...</option>
+                                <option value="">Sin asignar (Opcional)</option>
                                 {docentes.map((d) => (
                                     <option key={d.id} value={d.id} className="bg-card text-foreground">
                                         {d.nombre}

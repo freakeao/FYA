@@ -32,7 +32,7 @@ export default function LoginPage() {
             <div className="absolute top-6 right-8 z-50 animate-in fade-in slide-in-from-right-4 duration-1000">
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
                     <span className="opacity-50">Desarrollado Por:</span>
-                    <span className="text-[#e31b23] font-black group-hover:scale-110 transition-transform cursor-default">freakeao</span>
+                    <span className="text-[#e31b23] font-black text-sm md:text-base group-hover:scale-110 transition-transform cursor-default">@freakeao</span>
                 </p>
             </div>
 
@@ -57,6 +57,7 @@ export default function LoginPage() {
                                 fill
                                 className="object-contain"
                                 priority
+                                sizes="(max-width: 768px) 80px, 80px"
                             />
                         </div>
                         <div className="space-y-0.5">

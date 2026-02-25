@@ -93,10 +93,10 @@ export function BulkUploadModal({ isOpen, onClose, seccionId }: BulkUploadModalP
                     <div>
                         <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
                             <FileSpreadsheet className="w-5 h-5 text-primary" />
-                            Carga Masiva de Alumnos
+                            Carga Masiva de Estudiantes
                         </h2>
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
-                            Importar desde Excel (.xlsx) o CSV
+                            Importar desde Excel (.xlsx) o Estudiantes CSV
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">

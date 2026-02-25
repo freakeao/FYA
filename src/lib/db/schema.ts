@@ -176,3 +176,21 @@ export const asistenciaDocentesRelations = relations(asistenciaDocentes, ({ one 
     relationName: "asistencia_coordinador"
   }),
 }));
+
+export const seccionesDocentes = pgTable("secciones_docentes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  seccionId: uuid("seccion_id").references(() => secciones.id, { onDelete: "cascade" }).notNull(),
+  docenteId: uuid("docente_id").references(() => usuarios.id, { onDelete: "cascade" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const seccionesDocentesRelations = relations(seccionesDocentes, ({ one }) => ({
+  seccion: one(secciones, {
+    fields: [seccionesDocentes.seccionId],
+    references: [secciones.id],
+  }),
+  docente: one(usuarios, {
+    fields: [seccionesDocentes.docenteId],
+    references: [usuarios.id],
+  }),
+}));

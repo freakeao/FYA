@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db/db";
-import { secciones, materias, estudiantes, horarios, registrosAsistencia, inasistenciasAlumnos, usuarios, asistenciaDocentes, departamentos } from "@/lib/db/schema";
+import { secciones, materias, estudiantes, horarios, registrosAsistencia, inasistenciasAlumnos, usuarios, asistenciaDocentes, departamentos, seccionesDocentes } from "@/lib/db/schema";
 import { eq, and, sql, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { login, logout, getSession } from "./auth";
@@ -31,6 +31,7 @@ export async function getSecciones() {
         docenteGuia: usuarios.nombre,
         alumnosCount: sql<number>`(SELECT count(*) FROM ${estudiantes} WHERE ${estudiantes.seccionId} = ${secciones.id})`.mapWith(Number),
         materiasCount: sql<number>`(SELECT count(DISTINCT ${horarios.materiaId}) FROM ${horarios} WHERE ${horarios.seccionId} = ${secciones.id})`.mapWith(Number),
+        docentesCount: sql<number>`(SELECT count(*) FROM ${seccionesDocentes} WHERE ${seccionesDocentes.seccionId} = ${secciones.id})`.mapWith(Number),
         departamentoId: secciones.departamentoId
     };
 
@@ -68,20 +69,30 @@ export async function getSeccion(id: string) {
 
 export async function createSeccion(data: { nombre: string; grado: string; docenteGuiaId?: string; departamentoId: string }) {
     try {
-        await db.insert(secciones).values(data);
+        const finalData = {
+            ...data,
+            docenteGuiaId: data.docenteGuiaId || null
+        };
+        await db.insert(secciones).values(finalData);
         revalidatePath("/dashboard/secciones");
         return { success: true, message: "Sección creada correctamente" };
     } catch (error) {
+        console.error("Error al crear sección:", error);
         return { success: false, error: "Error al crear sección" };
     }
 }
 
 export async function updateSeccion(id: string, data: { nombre: string; grado: string; docenteGuiaId?: string; departamentoId: string }) {
     try {
-        await db.update(secciones).set(data).where(eq(secciones.id, id));
+        const finalData = {
+            ...data,
+            docenteGuiaId: data.docenteGuiaId || null
+        };
+        await db.update(secciones).set(finalData).where(eq(secciones.id, id));
         revalidatePath("/dashboard/secciones");
         return { success: true, message: "Sección actualizada correctamente" };
     } catch (error) {
+        console.error("Error al actualizar sección:", error);
         return { success: false, error: "Error al actualizar sección" };
     }
 }
@@ -136,7 +147,7 @@ export async function getEstudiantesBySeccion(seccionId: string) {
         .orderBy(estudiantes.numeroLista);
 }
 
-export async function addEstudiante(data: { nombre: string; seccionId: string; numeroLista: number; genero: "HEMBRA" | "VARON" }) {
+export async function addEstudiante(data: { nombre: string; seccionId: string; numeroLista: number; genero: "HEMBRA" | "VARON"; cedula?: string }) {
     try {
         await db.insert(estudiantes).values(data);
         revalidatePath(`/dashboard/secciones/${data.seccionId}/estudiantes`);
@@ -146,7 +157,7 @@ export async function addEstudiante(data: { nombre: string; seccionId: string; n
     }
 }
 
-export async function updateEstudiante(id: string, data: { nombre: string; numeroLista: number; genero: "HEMBRA" | "VARON"; seccionId: string }) {
+export async function updateEstudiante(id: string, data: { nombre: string; numeroLista: number; genero: "HEMBRA" | "VARON"; seccionId: string; cedula?: string }) {
     try {
         await db.update(estudiantes).set(data).where(eq(estudiantes.id, id));
         revalidatePath(`/dashboard/secciones/${data.seccionId}/estudiantes`);
@@ -691,6 +702,72 @@ export async function deleteUsuario(formData: FormData) {
     }
 }
 
+// --- GESTION DOCENTES POR SECCION ---
+export async function getDocentesBySeccion(seccionId: string) {
+    const assignedDocentes = await db.select({
+        id: usuarios.id,
+        nombre: usuarios.nombre,
+        rol: usuarios.rol,
+        cedula: usuarios.cedula,
+        departamentoNombre: departamentos.nombre
+    })
+        .from(seccionesDocentes)
+        .innerJoin(usuarios, eq(seccionesDocentes.docenteId, usuarios.id))
+        .leftJoin(departamentos, eq(usuarios.departamentoId, departamentos.id))
+        .where(eq(seccionesDocentes.seccionId, seccionId));
+
+    // Obtener materias que da cada docente en esta sección desde los horarios
+    const docentesConMaterias = await Promise.all(assignedDocentes.map(async (d: any) => {
+        const materiasDocente = await db.select({
+            nombre: materias.nombre
+        })
+            .from(horarios)
+            .innerJoin(materias, eq(horarios.materiaId, materias.id))
+            .where(and(
+                eq(horarios.seccionId, seccionId),
+                eq(horarios.docenteId, d.id)
+            ));
+
+        // Deduplicar materias
+        const uniqueMaterias = Array.from(new Set(materiasDocente.map((m: any) => m.nombre)));
+
+        return {
+            ...d,
+            materias: uniqueMaterias
+        };
+    }));
+
+    return docentesConMaterias;
+}
+
+export async function assignDocenteToSeccion(seccionId: string, docenteId: string) {
+    try {
+        // Check if already assigned
+        const existing = await db.select().from(seccionesDocentes)
+            .where(and(eq(seccionesDocentes.seccionId, seccionId), eq(seccionesDocentes.docenteId, docenteId)))
+            .limit(1);
+
+        if (existing.length > 0) return { success: false, error: "El docente ya está asignado a esta sección" };
+
+        await db.insert(seccionesDocentes).values({ seccionId, docenteId });
+        revalidatePath(`/dashboard/secciones/${seccionId}/estudiantes`);
+        return { success: true, message: "Docente asignado correctamente" };
+    } catch (error) {
+        return { success: false, error: "Error al asignar docente" };
+    }
+}
+
+export async function removeDocenteFromSeccion(seccionId: string, docenteId: string) {
+    try {
+        await db.delete(seccionesDocentes)
+            .where(and(eq(seccionesDocentes.seccionId, seccionId), eq(seccionesDocentes.docenteId, docenteId)));
+        revalidatePath(`/dashboard/secciones/${seccionId}/estudiantes`);
+        return { success: true, message: "Docente removido correctamente" };
+    } catch (error) {
+        return { success: false, error: "Error al remover docente" };
+    }
+}
+
 export async function deleteSeccion(formData: FormData) {
     const session = await getSession();
     const role = session?.user?.rol;
@@ -975,11 +1052,13 @@ export async function getDashboardData() {
                         porcentaje: porcentajeAsistencia,
                         label: "Asistencia Personal"
                     },
-                    reporteDocentes: { totalDocentes: 0, docentesReportaron: 0, docentesSinReporte: 0, porcentajeReporte: "0%" },
+                    reporteDocentes: { totalDocentes: 0, docentesReportaron: 0, docentesSinReporte: 0, porcentajeReporte: "0%", estudiantesSinReporte: 0 },
                     inasistenciasPersonal: personalAusente
                 },
                 docentesAusentes: [], // Or fetch specific staff absences list to show
-                clasesHoy: []
+                clasesHoy: [],
+                listaAusentesAlumnos: [],
+                listaDocentesPendientes: []
             };
         }
 
@@ -1103,7 +1182,13 @@ export async function getDashboardData() {
         // 4. Docentes que reportaron hoy
         // Filter classes by dept
 
-        const [docentesConClasesHoyRes, docentesReportaronRes, docentesAusentesHoy] = await Promise.all([
+        const [
+            docentesConClasesHoyRes,
+            docentesReportaronRes,
+            docentesAusentesHoy,
+            listaAusentesAlumnos,
+            listaDocentesPendientes
+        ] = await Promise.all([
             // Docentes con clases HOY en este Dept
             db
                 .selectDistinct({ docenteId: horarios.docenteId })
@@ -1139,7 +1224,47 @@ export async function getDashboardData() {
                         (isGlobalAdmin || !userDeptId) ? sql`1=1` : eq(usuarios.departamentoId, userDeptId)
                     )
                 )
-                .catch(() => [] as any[])
+                .catch(() => [] as any[]),
+            // LISTA: Alumnos ausentes detallados
+            db
+                .select({
+                    id: estudiantes.id,
+                    nombre: estudiantes.nombre,
+                    seccion: secciones.nombre,
+                    genero: estudiantes.genero
+                })
+                .from(inasistenciasAlumnos)
+                .innerJoin(estudiantes, eq(inasistenciasAlumnos.estudianteId, estudiantes.id))
+                .innerJoin(secciones, eq(estudiantes.seccionId, secciones.id))
+                .innerJoin(registrosAsistencia, eq(inasistenciasAlumnos.registroId, registrosAsistencia.id))
+                .where(and(
+                    eq(registrosAsistencia.fecha, today),
+                    sectionFilter
+                ))
+                .catch(() => []),
+            // LISTA: Docentes con clases pendientes (sin reporte)
+            db
+                .select({
+                    id: horarios.id,
+                    docente: usuarios.nombre,
+                    materia: materias.nombre,
+                    seccion: secciones.nombre,
+                    hora: sql<string>`cast(${horarios.horaInicio} as text) || ' - ' || cast(${horarios.horaFin} as text)`
+                })
+                .from(horarios)
+                .innerJoin(usuarios, eq(horarios.docenteId, usuarios.id))
+                .innerJoin(materias, eq(horarios.materiaId, materias.id))
+                .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
+                .where(and(
+                    eq(horarios.diaSemana, hoyDia as any),
+                    sectionFilter,
+                    sql`NOT EXISTS (
+                        SELECT 1 FROM ${registrosAsistencia} 
+                        WHERE ${registrosAsistencia.horarioId} = ${horarios.id} 
+                        AND ${registrosAsistencia.fecha} = ${today}
+                    )`
+                ))
+                .catch(() => [])
         ]);
 
         const totalDocentesConClasesHoy = docentesConClasesHoyRes.length;
@@ -1216,7 +1341,9 @@ export async function getDashboardData() {
                 inasistenciasPersonal: docentesAusentesHoy.length
             },
             docentesAusentes: docentesAusentesHoy,
-            clasesHoy
+            clasesHoy,
+            listaAusentesAlumnos,
+            listaDocentesPendientes: userRole === "DOCENTE" ? [] : listaDocentesPendientes
         };
     } catch (error) {
         console.error("Dashboard data error:", error);
@@ -1483,4 +1610,87 @@ export async function getPendingClasses(days: number = 7) {
     }
 
     return result;
+}
+
+export async function bulkCreateHorarios(data: {
+    docenteId: string;
+    seccionId: string;
+    diaSemana: "LUNES" | "MARTES" | "MIERCOLES" | "JUEVES" | "VIERNES";
+    horaInicio: string;
+    horaFin: string;
+    descripcion?: string;
+}[]) {
+    try {
+        if (data.length === 0) return { success: false, error: "No hay datos para importar" };
+
+        await db.insert(horarios).values(data.map(h => ({
+            docenteId: h.docenteId,
+            seccionId: h.seccionId,
+            diaSemana: h.diaSemana as any,
+            horaInicio: h.horaInicio,
+            horaFin: h.horaFin,
+            descripcion: h.descripcion || null,
+        })));
+
+        revalidatePath("/dashboard/horarios");
+        return { success: true, message: `${data.length} horarios importados correctamente` };
+    } catch (error) {
+        console.error("Bulk create horarios error:", error);
+        return { success: false, error: "Error al importar horarios de forma masiva" };
+    }
+}
+
+export async function autoCreateDocentesFromNames(names: string[]): Promise<{ success: boolean; created: { nombre: string; id: string }[]; error?: string }> {
+    try {
+        if (names.length === 0) return { success: true, created: [] };
+
+        // Fetch ALL existing users to check for duplicates
+        const existingUsers = await db.select({ id: usuarios.id, nombre: usuarios.nombre }).from(usuarios);
+
+        const normalize = (text: string) => text
+            .toUpperCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^A-Z0-9\s]/g, "")
+            .trim();
+
+        const created: { nombre: string; id: string }[] = [];
+
+        for (const name of names) {
+            const nameNorm = normalize(name);
+
+            // Check if any existing user matches this name (fuzzy)
+            const existing = (existingUsers as any[]).find((u: any) => {
+                const uNorm = normalize(u.nombre);
+                if (uNorm === nameNorm) return true;
+                // Check if all significant parts match
+                const nameParts = nameNorm.split(/\s+/).filter(p => p.length > 2);
+                const matchCount = nameParts.filter(p => uNorm.includes(p)).length;
+                return matchCount >= 2 || (nameParts.length === 1 && uNorm.includes(nameParts[0]));
+            });
+
+            if (existing) {
+                // Already exists, use existing ID
+                created.push({ nombre: existing.nombre, id: existing.id });
+            } else {
+                // Create new user
+                const [inserted] = await db.insert(usuarios).values({
+                    nombre: name,
+                    rol: "DOCENTE" as any,
+                }).returning({ id: usuarios.id, nombre: usuarios.nombre });
+
+                if (inserted) {
+                    created.push({ nombre: inserted.nombre, id: inserted.id });
+                    // Add to existingUsers so subsequent names don't duplicate
+                    existingUsers.push({ id: inserted.id, nombre: inserted.nombre });
+                }
+            }
+        }
+
+        revalidatePath("/dashboard/usuarios");
+        revalidatePath("/dashboard/personal");
+        return { success: true, created };
+    } catch (error) {
+        console.error("Auto create docentes error:", error);
+        return { success: false, created: [], error: "Error al crear docentes automáticamente" };
+    }
 }

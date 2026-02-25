@@ -37,7 +37,6 @@ export function Sidebar({ session }: { session: any }) {
                                 alt="Logo Fe y Alegría"
                                 fill
                                 className="object-contain"
-                                priority
                                 sizes="(max-width: 768px) 48px, 48px"
                             />
                         </div>

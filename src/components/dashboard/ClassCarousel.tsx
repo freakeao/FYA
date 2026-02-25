@@ -78,39 +78,44 @@ export function ClassCarousel({ classes }: ClassCarouselProps) {
                                 <Link
                                     href={`/dashboard/asistencia`}
                                     suppressHydrationWarning
-                                    className="flex flex-col justify-between h-full p-4 rounded-2xl border border-border/40 hover:border-primary/30 hover:bg-primary/[0.02] transition-all group/item bg-card/50"
+                                    className="flex flex-col justify-between h-full px-6 py-5 rounded-[2rem] border border-border/40 hover:border-primary/40 hover:bg-primary/[0.04] transition-all group/item bg-card shadow-sm hover:shadow-xl hover:shadow-primary/5"
                                 >
                                     <div className="space-y-3">
                                         <div className="flex items-start justify-between">
-                                            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                                            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center group-hover/item:scale-110 transition-transform">
                                                 <GraduationCap className="w-5 h-5 text-primary" />
                                             </div>
                                             <span className={cn(
-                                                "text-[8px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest",
-                                                clase.estado === "Completado" ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                                                "text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border",
+                                                clase.estado === "Completado"
+                                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                                    : "bg-amber-500/10 text-amber-600 border-amber-500/20"
                                             )}>
                                                 {clase.estado}
                                             </span>
                                         </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-primary uppercase tracking-tighter opacity-70">
-                                                {clase.grado} "{clase.seccion}"
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black text-primary uppercase tracking-wider">
+                                                {clase.grado} • {clase.seccion}
                                             </p>
-                                            <h4 className="text-lg font-bold uppercase tracking-tight line-clamp-2 group-hover/item:text-primary transition-colors mt-1">
+                                            <h4 className="text-xl font-black uppercase tracking-tight line-clamp-2 leading-tight group-hover/item:text-primary transition-colors">
                                                 {clase.materia}
                                             </h4>
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                                                Prof: {clase.docente}
-                                            </p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <div className="w-1 h-1 rounded-full bg-primary/40" />
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                                    Prof: <span className="text-foreground">{clase.docente}</span>
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/20">
                                         <div className="flex flex-col">
-                                            <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">Bloque Horario</p>
-                                            <p className="text-[10px] font-bold uppercase text-foreground mt-0.5">{formatRangeTime(clase.hora)}</p>
+                                            <p className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.2em]">Bloque Horario</p>
+                                            <p className="text-xs font-black uppercase text-foreground mt-0.5 tabular-nums">{formatRangeTime(clase.hora)}</p>
                                         </div>
-                                        <div className="w-8 h-8 rounded-full border border-border/40 flex items-center justify-center group-hover/item:bg-primary group-hover/item:border-primary transition-all">
+                                        <div className="w-9 h-9 rounded-full bg-slate-50 dark:bg-slate-900 border border-border/40 flex items-center justify-center group-hover/item:bg-primary group-hover/item:border-primary transition-all">
                                             <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover/item:text-white transition-colors" />
                                         </div>
                                     </div>

@@ -1,13 +1,12 @@
 
-const { db } = require('./src/lib/db/db');
-const { horarios, secciones, materias, usuarios } = require('./src/lib/db/schema');
-const { eq, and } = require('drizzle-orm');
+import { db } from './src/lib/db/db';
+import { horarios, secciones, materias, usuarios } from './src/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 const checkSchedule = async () => {
     // Configurar fecha en zona horaria de Venezuela
     const now = new Date();
     const options = { timeZone: "America/Caracas" };
-    // @ts-ignore
     const venezuelaDateStr = now.toLocaleString("en-US", options);
     const venezuelaDate = new Date(venezuelaDateStr);
 
@@ -24,6 +23,7 @@ const checkSchedule = async () => {
 
     // Fetch all schedules for today
     const schedules = await db.query.horarios.findMany({
+        // @ts-expect-error type matching in drizzle enum
         where: eq(horarios.diaSemana, hoyDia),
         with: {
             seccion: true,

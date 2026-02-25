@@ -22,18 +22,18 @@ export function DepartamentoManagerModal({ isOpen, onClose }: DepartamentoManage
     const [nombre, setNombre] = useState("");
     const [codigo, setCodigo] = useState("");
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchDepartamentos();
-        }
-    }, [isOpen]);
-
     async function fetchDepartamentos() {
         setLoading(true);
         const data = await getDepartamentos();
         setDepartamentos(data);
         setLoading(false);
     }
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchDepartamentos();
+        }
+    }, [isOpen]);
 
     const handleSave = async (id?: string) => {
         if (!nombre.trim()) {

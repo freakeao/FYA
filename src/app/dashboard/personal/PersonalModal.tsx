@@ -28,6 +28,11 @@ export function PersonalModal({ isOpen, onClose, editingPersonal, onManageDepart
     const [usuario, setUsuario] = useState("");
     const [password, setPassword] = useState("");
 
+    async function fetchDepts() {
+        const data = await getDepartamentos();
+        setDepartamentos(data);
+    }
+
     useEffect(() => {
         if (isOpen) {
             fetchDepts();
@@ -58,11 +63,6 @@ export function PersonalModal({ isOpen, onClose, editingPersonal, onManageDepart
             }
         }
     }, [editingPersonal, isOpen]);
-
-    async function fetchDepts() {
-        const data = await getDepartamentos();
-        setDepartamentos(data);
-    }
 
     if (!isOpen) return null;
 

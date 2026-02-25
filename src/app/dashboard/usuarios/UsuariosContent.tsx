@@ -40,8 +40,8 @@ export function UsuariosContent({ session, initialUsers }: UsuariosContentProps)
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            {/* Header & Action Toolbar */}
+            <div className="flex flex-col gap-6">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-widest">
                         <UserRound className="w-4 h-4" />
@@ -51,38 +51,84 @@ export function UsuariosContent({ session, initialUsers }: UsuariosContentProps)
                     <p className="text-sm text-muted-foreground">Administre las cuentas de acceso para docentes y coordinadores.</p>
                 </div>
 
-                <button
-                    onClick={() => {
-                        setEditingUsuario(null);
-                        setIsFormModalOpen(true);
-                    }}
-                    className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-4 rounded-3xl font-black text-sm uppercase tracking-widest hover:shadow-2xl hover:shadow-primary/30 transition-all active:scale-95 group"
-                >
-                    <UserPlus className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                    Nuevo Usuario
-                </button>
-                <button
-                    onClick={() => setIsUploadModalOpen(true)}
-                    className="flex items-center gap-2 bg-card border border-border/40 text-muted-foreground px-6 py-4 rounded-3xl font-black text-sm uppercase tracking-widest hover:text-foreground hover:bg-accent/50 transition-all active:scale-95 group"
-                >
-                    <span className="flex items-center gap-2">Importar Personal</span>
-                </button>
+                {/* Unified Action Toolbar */}
+                <div className="flex flex-col xl:flex-row items-center justify-between gap-4 p-2 bg-card/40 border border-border/40 rounded-[2rem] backdrop-blur-md shadow-sm">
+
+                    <div className="flex-1 w-full flex items-center px-4 py-2">
+                        <span className="text-sm font-bold text-muted-foreground/70 uppercase tracking-widest">
+                            {initialUsers.length} Usuarios Registrados
+                        </span>
+                    </div>
+
+                    <div className="w-full h-px bg-border/50 xl:hidden" />
+                    <div className="w-px h-8 bg-border/50 hidden xl:block" />
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto px-2 pb-2 xl:p-0">
+                        <button
+                            onClick={() => setIsUploadModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
+                        >
+                            Importar Personal
+                        </button>
+                        <button
+                            onClick={() => {
+                                setEditingUsuario(null);
+                                setIsFormModalOpen(true);
+                            }}
+                            className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95 group ml-auto xl:ml-2"
+                        >
+                            <UserPlus className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                            Nuevo Usuario
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* User List */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {initialUsers.map((user) => (
-                    <div key={user.id} className="premium-card p-6 rounded-[2rem] flex flex-col justify-between gap-4 group hover:border-primary/30 transition-all">
+                    <div key={user.id} className="premium-card p-6 rounded-[2rem] flex flex-col justify-between gap-4 group hover:border-primary/30 transition-all relative overflow-hidden">
+
+                        {/* Card Hover Actions */}
+                        <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-card/80 backdrop-blur-sm rounded-xl border border-border/50 p-1 shadow-sm">
+                            <button
+                                onClick={() => {
+                                    setEditingUsuario(user);
+                                    setIsFormModalOpen(true);
+                                }}
+                                className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                title="Editar"
+                            >
+                                <Edit2 className="w-4 h-4" />
+                            </button>
+                            {user.id !== session.user.id && (
+                                <button
+                                    onClick={() => {
+                                        setIdToDelete(user.id);
+                                        setIsDeleteModalOpen(true);
+                                    }}
+                                    className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors group/del"
+                                    title="Eliminar"
+                                >
+                                    <Trash2 className="w-4 h-4 group-hover/del:scale-110 transition-transform" />
+                                </button>
+                            )}
+                        </div>
+
                         <div className="flex items-start justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-2xl bg-accent flex items-center justify-center font-black text-lg uppercase text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 transition-colors">
                                     {user.nombre[0]}
                                 </div>
                                 <div>
-                                    <p className="font-bold text-lg leading-tight">{user.nombre}</p>
+                                    <p className="font-bold text-lg leading-tight pr-12">{user.nombre}</p>
                                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">@{user.usuario}</p>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4 border-t border-border/40 mt-auto">
                             <span className={cn(
                                 "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border",
                                 user.rol === 'ADMINISTRADOR'
@@ -91,35 +137,9 @@ export function UsuariosContent({ session, initialUsers }: UsuariosContentProps)
                             )}>
                                 {user.rol}
                             </span>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-4 border-t border-border/40">
                             <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                                 <ShieldCheck className="w-3 h-3" />
                                 Acceso Permitido
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => {
-                                        setEditingUsuario(user);
-                                        setIsFormModalOpen(true);
-                                    }}
-                                    className="p-2 hover:bg-accent rounded-xl text-muted-foreground hover:text-foreground transition-colors"
-                                >
-                                    <Edit2 className="w-4 h-4" />
-                                </button>
-                                {user.id !== session.user.id && (
-                                    <button
-                                        onClick={() => {
-                                            setIdToDelete(user.id);
-                                            setIsDeleteModalOpen(true);
-                                        }}
-                                        className="p-2 hover:bg-destructive/10 rounded-xl text-destructive transition-colors group/del"
-                                    >
-                                        <Trash2 className="w-4 h-4 group-hover/del:scale-110 transition-transform" />
-                                    </button>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -150,6 +170,6 @@ export function UsuariosContent({ session, initialUsers }: UsuariosContentProps)
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
             />
-        </div>
+        </div >
     );
 }

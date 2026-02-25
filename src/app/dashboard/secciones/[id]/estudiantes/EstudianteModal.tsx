@@ -5,6 +5,7 @@ import { Modal } from "@/components/common/Modal";
 import { addEstudiante, updateEstudiante } from "@/lib/actions";
 import { toast } from "sonner";
 import { User, Hash, UserCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface EstudianteModalProps {
     isOpen: boolean;
@@ -21,9 +22,12 @@ export function EstudianteModal({
     editingEstudiante,
     nextNumeroLista = 1
 }: EstudianteModalProps) {
+    const router = useRouter();
     const [loading, setLoading] = useState(false);
+    // ... rest of state ...
     const [formData, setFormData] = useState({
         nombre: "",
+        cedula: "",
         numeroLista: 1,
         genero: "VARON" as "HEMBRA" | "VARON"
     });
@@ -32,12 +36,14 @@ export function EstudianteModal({
         if (editingEstudiante) {
             setFormData({
                 nombre: editingEstudiante.nombre || "",
+                cedula: editingEstudiante.cedula || "",
                 numeroLista: editingEstudiante.numeroLista || 1,
                 genero: (editingEstudiante.genero as any) || "VARON"
             });
         } else {
             setFormData({
                 nombre: "",
+                cedula: "",
                 numeroLista: nextNumeroLista,
                 genero: "VARON"
             });
@@ -55,6 +61,7 @@ export function EstudianteModal({
 
         if (res.success) {
             toast.success(res.message);
+            router.refresh();
             onClose();
         } else {
             toast.error(res.error);
@@ -67,7 +74,7 @@ export function EstudianteModal({
             isOpen={isOpen}
             onClose={onClose}
             title={editingEstudiante ? "Editar Estudiante" : "Nuevo Estudiante"}
-            description={editingEstudiante ? "Actualice la información del alumno." : "Registre un nuevo alumno en esta sección."}
+            description={editingEstudiante ? "Actualice la información del estudiante." : "Registre un nuevo estudiante en esta sección."}
             maxWidth="md"
         >
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -87,6 +94,25 @@ export function EstudianteModal({
                                 placeholder="Ej: Juan Pérez"
                                 value={formData.nombre}
                                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                                className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Cédula */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                            Cédula / ID Escolar
+                        </label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors">
+                                <Hash className="w-full h-full" />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Ej: V-12345678"
+                                value={formData.cedula}
+                                onChange={(e) => setFormData({ ...formData, cedula: e.target.value })}
                                 className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
                             />
                         </div>
@@ -148,7 +174,7 @@ export function EstudianteModal({
                         disabled={loading}
                         className="h-14 rounded-2xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
-                        {loading ? "PROCESANDO..." : editingEstudiante ? "GUARDAR CAMBIOS" : "REGISTRAR ALUMNO"}
+                        {loading ? "PROCESANDO..." : editingEstudiante ? "GUARDAR CAMBIOS" : "REGISTRAR ESTUDIANTE"}
                     </button>
                 </div>
             </form>
