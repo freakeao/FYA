@@ -1,5 +1,7 @@
-import { db } from "./src/lib/db";
-import { registrosAsistencia, horarios, secciones, estudiantes } from "./src/lib/db/schema";
+import { config } from "dotenv";
+config();
+import { db } from "../src/lib/db/db";
+import { registrosAsistencia, horarios, secciones, estudiantes } from "../src/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
 async function checkAttendance() {
@@ -15,7 +17,7 @@ async function checkAttendance() {
 
         console.log("\n=== REGISTROS DE ASISTENCIA HOY ===");
         console.log("Total de registros:", registrosHoy.length);
-        registrosHoy.forEach(r => {
+        registrosHoy.forEach((r: any) => {
             console.log(`- Horario ID: ${r.horarioId}, Presentes: ${r.cantidadT}, H: ${r.cantidadH}, V: ${r.cantidadV}`);
         });
 

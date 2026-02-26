@@ -1,4 +1,4 @@
-import { getVenezuelaDate, getVenezuelaDayOfWeek } from "./src/lib/dateUtils";
+import { getVenezuelaDate, getVenezuelaDayOfWeek } from "../src/lib/dateUtils";
 
 console.log("=== VERIFICACIÓN DE FECHAS ===");
 console.log("Fecha actual en Venezuela:", getVenezuelaDate());
