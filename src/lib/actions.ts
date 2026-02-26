@@ -1615,6 +1615,7 @@ export async function getPendingClasses(days: number = 7) {
 export async function bulkCreateHorarios(data: {
     docenteId: string;
     seccionId: string;
+    materiaId?: string;
     diaSemana: "LUNES" | "MARTES" | "MIERCOLES" | "JUEVES" | "VIERNES";
     horaInicio: string;
     horaFin: string;
@@ -1626,6 +1627,7 @@ export async function bulkCreateHorarios(data: {
         await db.insert(horarios).values(data.map(h => ({
             docenteId: h.docenteId,
             seccionId: h.seccionId,
+            materiaId: h.materiaId || null,
             diaSemana: h.diaSemana as any,
             horaInicio: h.horaInicio,
             horaFin: h.horaFin,

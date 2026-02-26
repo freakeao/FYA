@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, X, FileSpreadsheet, AlertCircle, Check, AlertTriangle, Clock, User, Users, Calendar } from "lucide-react";
+import { Upload, X, FileSpreadsheet, AlertCircle, Check, AlertTriangle, Clock, User, Users, Calendar, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -13,175 +13,94 @@ interface BulkHorarioUploadModalProps {
     onClose: () => void;
     docentes: any[];
     secciones: any[];
+    materias: any[];
 }
 
 interface ParsedEntry {
     profesorRaw: string;
     docenteId: string | null;
     docenteNombre: string | null;
+
+    materiaRaw: string;
+    materiaId: string | null;
+    materiaNombre: string | null;
+
     seccionRaw: string;
     seccionId: string | null;
     seccionNombre: string | null;
+
     diaSemana: "LUNES" | "MARTES" | "MIERCOLES" | "JUEVES" | "VIERNES";
     horaInicio: string;
     horaFin: string;
-    descripcion?: string;
-    matched: boolean;
+
+    valido: boolean;
 }
 
-const DIAS_MAP: Record<number, "LUNES" | "MARTES" | "MIERCOLES" | "JUEVES" | "VIERNES"> = {
-    0: "LUNES",
-    1: "MARTES",
-    2: "MIERCOLES",
-    3: "JUEVES",
-    4: "VIERNES"
-};
-
-const SKIP_WORDS = ["RECESO", "ALMUERZO", "RECESO ", "ALMUERZO "];
-
 function normalizeText(text: string): string {
-    return text
+    if (!text) return "";
+    return text.toString()
         .toUpperCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^A-Z0-9\s]/g, "")
         .trim();
 }
 
-function cleanTeacherName(sheetName: string): string {
-    return sheetName
-        .replace(/^(PROF\.|PROF|LIC\.|LIC|DR\.|DR|ING\.|ING|MSC\.|MSC)\s*/i, "")
-        .trim();
-}
-
-function parseTimeRange(timeStr: string): { horaInicio: string; horaFin: string } | null {
-    if (!timeStr) return null;
-    const cleaned = timeStr.toString().replace(/\s+/g, " ").trim();
-    // Match patterns like "07:00 - 7:40", "9:50 - 10:30", "3:10 3:50" (no dash)
-    const match = cleaned.match(/(\d{1,2}[:\.]\d{2})\s*[-–—]?\s*(\d{1,2}[:\.]\d{2})/);
-    if (!match) return null;
-
-    const formatTime = (t: string) => {
-        const parts = t.replace(".", ":").split(":");
-        return parts[0].padStart(2, "0") + ":" + parts[1];
-    };
-
-    return {
-        horaInicio: formatTime(match[1]),
-        horaFin: formatTime(match[2])
-    };
+function extractTime(timeStr: string): string {
+    if (!timeStr) return "";
+    const cleaned = timeStr.toString().toLowerCase().replace(/\s+/g, "").replace(".", ":");
+    const match = cleaned.match(/(\d{1,2}):(\d{2})/);
+    if (!match) return "";
+    let hour = parseInt(match[1]);
+    const minute = parseInt(match[2]);
+    if (cleaned.includes("pm") && hour < 12) hour += 12;
+    if (cleaned.includes("am") && hour === 12) hour = 0;
+    return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 }
 
 function matchDocente(rawName: string, docentes: any[]): { id: string; nombre: string } | null {
-    const cleaned = normalizeText(cleanTeacherName(rawName));
+    const cleaned = normalizeText(rawName);
     if (!cleaned) return null;
 
-    // Try exact match first
+    // Direct match
     for (const d of docentes) {
-        if (normalizeText(d.nombre) === cleaned) {
-            return { id: d.id, nombre: d.nombre };
-        }
+        if (normalizeText(d.nombre) === cleaned) return { id: d.id, nombre: d.nombre };
     }
 
-    // Try includes match (name parts)
+    // Partial Match (Last name or First name)
     const parts = cleaned.split(/\s+/).filter(p => p.length > 2);
     for (const d of docentes) {
         const dNorm = normalizeText(d.nombre);
-        const matchCount = parts.filter(p => dNorm.includes(p)).length;
-        if (matchCount >= 2 || (parts.length === 1 && dNorm.includes(parts[0]))) {
+        if (parts.some(p => dNorm.includes(p))) {
             return { id: d.id, nombre: d.nombre };
         }
     }
-
-    // Try last name match
-    for (const d of docentes) {
-        const dNorm = normalizeText(d.nombre);
-        const dParts = dNorm.split(/\s+/);
-        // Check if any part of the sheet name matches the last word of the teacher name
-        for (const p of parts) {
-            if (dParts[dParts.length - 1] === p || dParts[0] === p) {
-                return { id: d.id, nombre: d.nombre };
-            }
-        }
-    }
-
     return null;
 }
 
-function parseSeccionCell(cellValue: string): string[] {
-    if (!cellValue) return [];
-    const val = cellValue.toString().trim();
-    if (!val) return [];
-
-    // Skip RECESO/ALMUERZO
-    const upper = val.toUpperCase().trim();
-    if (SKIP_WORDS.some(w => upper.startsWith(w))) return [];
-
-    // Handle combined cells: "4TO "A" / 4TO "B"" or "1ERO "A" / 1ERO "B""
-    // Split by / and process each part
-    const parts = val.split("/").map(p => p.trim()).filter(p => p.length > 0);
-
-    const results: string[] = [];
-    for (const part of parts) {
-        // Clean up the section reference
-        const cleaned = part.replace(/[""]/g, '"').trim();
-        if (cleaned && !SKIP_WORDS.some(w => cleaned.toUpperCase().startsWith(w))) {
-            results.push(cleaned);
+function matchMateria(rawMateria: string, materias: any[]): { id: string; nombre: string } | null {
+    const cleaned = normalizeText(rawMateria);
+    if (!cleaned) return null;
+    for (const m of materias) {
+        if (normalizeText(m.nombre).includes(cleaned) || cleaned.includes(normalizeText(m.nombre))) {
+            return { id: m.id, nombre: m.nombre };
         }
     }
-
-    return results;
+    return null;
 }
 
 function matchSeccion(rawSeccion: string, secciones: any[]): { id: string; nombre: string } | null {
-    if (!rawSeccion) return null;
-
-    // Normalize: "4TO "A"" -> extract grado number and letter
-    const normalized = rawSeccion.toUpperCase().replace(/[""]/g, '"').trim();
-
-    // Try direct name match first
+    const cleaned = normalizeText(rawSeccion);
+    if (!cleaned) return null;
     for (const s of secciones) {
-        const sNorm = s.nombre.toUpperCase().trim();
-        if (sNorm === normalized || sNorm === normalized.replace(/"/g, "")) {
-            return { id: s.id, nombre: s.nombre };
+        const sNorm = normalizeText(`${s.nombre} ${s.grado}`);
+        if (sNorm.includes(cleaned) || cleaned.includes(normalizeText(s.nombre))) {
+            return { id: s.id, nombre: `${s.nombre} - ${s.grado}` };
         }
     }
-
-    // Extract grado and section letter
-    // Patterns: "4TO A", "4TO "A"", "5TO"A"", "1ERO "C"", "3ERO "C""
-    const match = normalized.match(/(\d+)\s*(?:ER|ERO|TO|DO|MO|RO|NO|VO|NTO|STO|NDO|CER|RTO)?\s*[""']?\s*([A-Z])\s*[""']?/i);
-
-    if (match) {
-        const grado = match[1];
-        const letra = match[2].toUpperCase();
-
-        // Try matching by grado + nombre containing the letter
-        for (const s of secciones) {
-            const sGrado = s.grado?.toString() || "";
-            const sNombre = s.nombre?.toUpperCase() || "";
-
-            // Check if grado matches and nombre contains the letter
-            if (
-                (sGrado === grado || sGrado.includes(grado)) &&
-                (sNombre.includes(letra) || sNombre.includes(`"${letra}"`))
-            ) {
-                return { id: s.id, nombre: s.nombre };
-            }
-        }
-
-        // Looser match: just check nombre pattern
-        const searchPattern = `${grado}.*${letra}`;
-        const regex = new RegExp(searchPattern, "i");
-        for (const s of secciones) {
-            if (regex.test(s.nombre) || regex.test(`${s.grado} ${s.nombre}`)) {
-                return { id: s.id, nombre: s.nombre };
-            }
-        }
-    }
-
     return null;
 }
 
-export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }: BulkHorarioUploadModalProps) {
+export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones, materias }: BulkHorarioUploadModalProps) {
     const router = useRouter();
     const [file, setFile] = useState<File | null>(null);
     const [previewData, setPreviewData] = useState<ParsedEntry[]>([]);
@@ -205,103 +124,52 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
                 const workbook = XLSX.read(data, { type: "array" });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
                 const allEntries: ParsedEntry[] = [];
 
-                for (const sheetName of workbook.SheetNames) {
-                    const worksheet = workbook.Sheets[sheetName];
-                    const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, {
-                        header: 1,
-                        defval: ""
+                for (const row of jsonData) {
+                    const profRaw = row["PROFESOR"]?.toString().trim() || "";
+                    const matRaw = row["MATERIA"]?.toString().trim() || "";
+                    const secRaw = row["SECCIÓN"]?.toString().trim() || row["SECCION"]?.toString().trim() || "";
+                    const diaRaw = row["DÍA"]?.toString().trim().toUpperCase() || row["DIA"]?.toString().trim().toUpperCase() || "";
+                    const hInicio = extractTime(row["HORA INICIO"]?.toString() || "");
+                    const hFin = extractTime(row["HORA FIN"]?.toString() || "");
+
+                    if (!profRaw && !secRaw && !hInicio) continue; // Skip empty rows
+
+                    const dMatch = matchDocente(profRaw, docentes);
+                    const mMatch = matchMateria(matRaw, materias);
+                    const sMatch = matchSeccion(secRaw, secciones);
+
+                    const validDays = ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES"];
+                    const normalizedDay = normalizeText(diaRaw);
+                    const finalDay = validDays.find(d => normalizedDay.includes(d)) as any || "LUNES";
+
+                    allEntries.push({
+                        profesorRaw: profRaw || "Sin Asignar",
+                        docenteId: dMatch?.id || null,
+                        docenteNombre: dMatch?.nombre || null,
+                        materiaRaw: matRaw || "Sin Materia",
+                        materiaId: mMatch?.id || null,
+                        materiaNombre: mMatch?.nombre || null,
+                        seccionRaw: secRaw || "Sin Sección",
+                        seccionId: sMatch?.id || null,
+                        seccionNombre: sMatch?.nombre || null,
+                        diaSemana: finalDay,
+                        horaInicio: hInicio || "00:00",
+                        horaFin: hFin || "00:00",
+                        valido: !!dMatch && !!sMatch && !!hInicio && !!hFin
                     });
-
-                    // Match teacher from sheet name
-                    const docenteMatch = matchDocente(sheetName, docentes);
-
-                    // Find the header row (contains "HORA" and day names)
-                    let headerRowIdx = -1;
-                    let dayColumns: Record<number, "LUNES" | "MARTES" | "MIERCOLES" | "JUEVES" | "VIERNES"> = {};
-
-                    for (let i = 0; i < Math.min(jsonData.length, 15); i++) {
-                        const row = jsonData[i];
-                        if (!row) continue;
-                        const rowStr = row.map(c => c?.toString().toUpperCase().trim() || "");
-                        const horaIdx = rowStr.findIndex(c => c === "HORA");
-
-                        if (horaIdx >= 0) {
-                            headerRowIdx = i;
-                            // Find day columns
-                            for (let j = horaIdx + 1; j < rowStr.length; j++) {
-                                const cell = rowStr[j];
-                                if (cell === "LUNES") dayColumns[j] = "LUNES";
-                                else if (cell === "MARTES") dayColumns[j] = "MARTES";
-                                else if (cell === "MIERCOLES" || cell === "MIÉRCOLES") dayColumns[j] = "MIERCOLES";
-                                else if (cell === "JUEVES") dayColumns[j] = "JUEVES";
-                                else if (cell === "VIERNES") dayColumns[j] = "VIERNES";
-                            }
-                            break;
-                        }
-                    }
-
-                    if (headerRowIdx < 0 || Object.keys(dayColumns).length === 0) continue;
-
-                    // Find the HORA column index
-                    const horaColIdx = jsonData[headerRowIdx].findIndex(
-                        (c: any) => c?.toString().toUpperCase().trim() === "HORA"
-                    );
-
-                    // Parse data rows
-                    for (let i = headerRowIdx + 1; i < jsonData.length; i++) {
-                        const row = jsonData[i];
-                        if (!row || !row[horaColIdx]) continue;
-
-                        const timeRange = parseTimeRange(row[horaColIdx]?.toString());
-                        if (!timeRange) continue;
-
-                        // Check each day column
-                        for (const [colIdxStr, dia] of Object.entries(dayColumns)) {
-                            const colIdx = parseInt(colIdxStr);
-                            const cellValue = row[colIdx]?.toString().trim();
-                            if (!cellValue) continue;
-
-                            const seccionRefs = parseSeccionCell(cellValue);
-                            if (seccionRefs.length === 0) continue;
-
-                            for (const secRef of seccionRefs) {
-                                const seccionMatch = matchSeccion(secRef, secciones);
-
-                                // Check if there's additional text in the cell (below line) for description
-                                let descripcion: string | undefined;
-                                const lines = cellValue.split("\n");
-                                if (lines.length > 1) {
-                                    const extraLines = lines.slice(1).map((l: string) => l.trim()).filter((l: string) => l && !parseSeccionCell(l).length);
-                                    if (extraLines.length > 0) {
-                                        descripcion = extraLines.join(" ");
-                                    }
-                                }
-
-                                allEntries.push({
-                                    profesorRaw: sheetName,
-                                    docenteId: docenteMatch?.id || null,
-                                    docenteNombre: docenteMatch?.nombre || null,
-                                    seccionRaw: secRef,
-                                    seccionId: seccionMatch?.id || null,
-                                    seccionNombre: seccionMatch?.nombre || null,
-                                    diaSemana: dia,
-                                    horaInicio: timeRange.horaInicio,
-                                    horaFin: timeRange.horaFin,
-                                    descripcion,
-                                    matched: !!docenteMatch && !!seccionMatch
-                                });
-                            }
-                        }
-                    }
                 }
 
                 setPreviewData(allEntries);
                 setStep("preview");
             } catch (error) {
                 console.error("Parse error:", error);
-                toast.error("Error al leer el archivo. Asegúrate de que sea un Excel válido.");
+                toast.error("Error al leer el archivo. Asegúrate de usar la plantilla correcta.");
             }
         };
         reader.readAsArrayBuffer(file);
@@ -312,45 +180,32 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
         try {
             // Step 1: Auto-create missing professors
             const unmatchedProfs = [...new Set(
-                previewData
-                    .filter(e => !e.docenteId)
-                    .map(e => e.profesorRaw)
+                previewData.filter(e => !e.docenteId && e.profesorRaw !== "Sin Asignar").map(e => e.profesorRaw)
             )];
 
-            // Clean teacher names for creation (remove PROF., LIC., etc.)
-            const namesToCreate = unmatchedProfs.map(name => cleanTeacherName(name));
+            let newDocenteMap: Record<string, string> = {};
 
-            let newDocenteMap: Record<string, string> = {}; // raw sheet name -> new ID
-
-            if (namesToCreate.length > 0) {
-                const createRes = await autoCreateDocentesFromNames(namesToCreate);
+            if (unmatchedProfs.length > 0) {
+                const createRes = await autoCreateDocentesFromNames(unmatchedProfs);
                 if (!createRes.success) {
                     toast.error(createRes.error || "Error al crear docentes");
                     setIsLoading(false);
                     return;
                 }
-                // Map original sheet names to new IDs
                 for (let i = 0; i < unmatchedProfs.length; i++) {
                     const created = createRes.created[i];
-                    if (created) {
-                        newDocenteMap[unmatchedProfs[i]] = created.id;
-                    }
+                    if (created) newDocenteMap[unmatchedProfs[i]] = created.id;
                 }
-                toast.success(`${createRes.created.length} docentes creados automáticamente`);
             }
 
-            // Step 2: Update entries with new docente IDs
-            const updatedEntries = previewData.map(e => {
-                if (!e.docenteId && newDocenteMap[e.profesorRaw]) {
-                    return { ...e, docenteId: newDocenteMap[e.profesorRaw] };
-                }
-                return e;
-            });
+            // Step 2: Extract valid entries
+            const validEntries = previewData.map(e => ({
+                ...e,
+                docenteId: e.docenteId || newDocenteMap[e.profesorRaw] || null
+            })).filter(e => e.docenteId && e.seccionId);
 
-            // Step 3: Insert horarios (only those with both docenteId and seccionId)
-            const validEntries = updatedEntries.filter(e => e.docenteId && e.seccionId);
             if (validEntries.length === 0) {
-                toast.error("No hay horarios válidos para importar. Verifica que las secciones existan en el sistema.");
+                toast.error("No hay horarios válidos para importar. Verifica las secciones.");
                 setIsLoading(false);
                 return;
             }
@@ -358,10 +213,10 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
             const formattedData = validEntries.map(e => ({
                 docenteId: e.docenteId!,
                 seccionId: e.seccionId!,
+                materiaId: e.materiaId || undefined,
                 diaSemana: e.diaSemana,
                 horaInicio: e.horaInicio,
-                horaFin: e.horaFin,
-                descripcion: e.descripcion,
+                horaFin: e.horaFin
             }));
 
             const res = await bulkCreateHorarios(formattedData);
@@ -382,15 +237,15 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
         }
     };
 
-    const withSectionMatch = previewData.filter(e => e.seccionId).length;
-    const withoutSection = previewData.filter(e => !e.seccionId).length;
+    const validCount = previewData.filter(e => e.seccionId && e.horaInicio && e.horaFin).length;
+    const invalidCount = previewData.length - validCount;
     const unmatchedProfCount = [...new Set(previewData.filter(e => !e.docenteId).map(e => e.profesorRaw))].length;
     const profesores = [...new Set(previewData.map(e => e.profesorRaw))];
 
     const filteredPreview = filterProfesor === "all"
         ? previewData
-        : filterProfesor === "unmatched"
-            ? previewData.filter(e => !e.seccionId)
+        : filterProfesor === "invalid"
+            ? previewData.filter(e => !e.valido)
             : previewData.filter(e => e.profesorRaw === filterProfesor);
 
     return (
@@ -401,10 +256,10 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
                     <div>
                         <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
                             <Calendar className="w-5 h-5 text-primary" />
-                            Carga Masiva de Horarios
+                            Carga Masiva de Horarios (Plantilla Oficial)
                         </h2>
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
-                            Importe horarios de docentes desde un archivo Excel multi-pestaña
+                            Importe los datos de la escuela de una sola vez
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
@@ -427,37 +282,40 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
                                     <Upload className="w-8 h-8 text-primary" />
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-sm font-bold uppercase tracking-widest text-primary">Haz clic para subir archivo</p>
-                                    <p className="text-xs text-muted-foreground mt-2">Archivo Excel con pestañas de horarios por docente (.xlsx)</p>
+                                    <p className="text-sm font-bold uppercase tracking-widest text-primary">Haz clic para subir archivo Excel</p>
+                                    <p className="text-xs text-muted-foreground mt-2">Sube la plantilla oficial de Horarios llena (.xlsx)</p>
                                 </div>
                             </label>
 
                             <div className="mt-8 p-6 bg-slate-50 dark:bg-slate-900/20 rounded-2xl border border-border/40 w-full max-w-2xl">
-                                <h4 className="flex items-center gap-2 text-xs font-black text-primary uppercase tracking-widest mb-4">
-                                    <AlertCircle className="w-4 h-4" /> Formato Esperado del Excel
+                                <h4 className="flex items-center justify-between text-xs font-black text-primary uppercase tracking-widest mb-4">
+                                    <span className="flex items-center gap-2"><FileSpreadsheet className="w-4 h-4" /> Uso de la Plantilla</span>
+                                    <a
+                                        href="/plantilla_horarios.xlsx"
+                                        download="Plantilla_Horarios_FYA.xlsx"
+                                        className="flex items-center gap-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                        <Download className="w-4 h-4" /> Descargar Plantilla
+                                    </a>
                                 </h4>
                                 <div className="space-y-3 text-[11px] text-muted-foreground">
                                     <p className="flex items-center gap-2">
-                                        <FileSpreadsheet className="w-4 h-4 text-primary flex-shrink-0" />
-                                        <span>Cada <strong>pestaña</strong> = un docente (nombre en la pestaña, ej: "PROF. VICTOR LEÓN")</span>
+                                        <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                        <span>Utiliza exclusivamente la plantilla plana generada por el sistema.</span>
                                     </p>
                                     <p className="flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-primary flex-shrink-0" />
-                                        <span><strong>Columna HORA</strong> con rangos como "07:00 - 7:40", "9:50 - 10:30"</span>
+                                        <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                        <span>Escribe los nombres de los docentes de forma limpia (Sin "PROF" o titulo).</span>
                                     </p>
                                     <p className="flex items-center gap-2">
-                                        <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
-                                        <span><strong>Columnas por día:</strong> LUNES, MARTES, MIÉRCOLES, JUEVES, VIERNES</span>
-                                    </p>
-                                    <p className="flex items-center gap-2">
-                                        <Users className="w-4 h-4 text-primary flex-shrink-0" />
-                                        <span><strong>Celdas:</strong> Sección asignada (ej: 4TO "A", 5TO "B", 3ERO "C")</span>
+                                        <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                        <span>Las materias se asignarán visualmente al escanear la base de datos.</span>
                                     </p>
                                 </div>
                                 <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl">
                                     <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">
                                         ✨ Los profesores que no existan serán creados automáticamente como DOCENTE.
-                                        Las secciones sí deben existir previamente.
+                                        Las secciones y materias DEBEN existir previamente de forma exacta.
                                     </p>
                                 </div>
                             </div>
@@ -469,14 +327,14 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
                                 <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 rounded-2xl">
                                     <Check className="w-4 h-4 text-emerald-600" />
                                     <span className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-                                        {withSectionMatch} importables
+                                        {validCount} correctos
                                     </span>
                                 </div>
-                                {withoutSection > 0 && (
+                                {invalidCount > 0 && (
                                     <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-2xl">
                                         <AlertTriangle className="w-4 h-4 text-amber-600" />
                                         <span className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider">
-                                            {withoutSection} sin sección
+                                            {invalidCount} incompletos
                                         </span>
                                     </div>
                                 )}
@@ -484,16 +342,10 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
                                     <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-2xl">
                                         <User className="w-4 h-4 text-blue-600" />
                                         <span className="text-xs font-black text-blue-700 dark:text-blue-400 uppercase tracking-wider">
-                                            {unmatchedProfCount} prof. a crear
+                                            {unmatchedProfCount} prof. nuevos
                                         </span>
                                     </div>
                                 )}
-                                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800/30 rounded-2xl">
-                                    <Users className="w-4 h-4 text-slate-600" />
-                                    <span className="text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">
-                                        {profesores.length} profesores
-                                    </span>
-                                </div>
                                 <div className="ml-auto flex items-center gap-2">
                                     <button
                                         onClick={() => { setFile(null); setStep("upload"); setPreviewData([]); }}
@@ -511,9 +363,9 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
                                     onChange={(e) => setFilterProfesor(e.target.value)}
                                     className="bg-card border border-border/40 rounded-xl py-2 px-3 text-xs font-bold uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/20"
                                 >
-                                    <option value="all">Todos los profesores ({previewData.length})</option>
-                                    {withoutSection > 0 && (
-                                        <option value="unmatched">⚠️ Solo sin sección ({withoutSection})</option>
+                                    <option value="all">Ver todas las filas ({previewData.length})</option>
+                                    {invalidCount > 0 && (
+                                        <option value="invalid">⚠️ Ver solo incompletos ({invalidCount})</option>
                                     )}
                                     {profesores.map(p => {
                                         const count = previewData.filter(e => e.profesorRaw === p).length;
@@ -525,73 +377,60 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
                             {/* Preview table */}
                             <div className="max-h-[400px] overflow-y-auto custom-scrollbar border border-border/40 rounded-2xl">
                                 <table className="w-full text-left text-[11px]">
-                                    <thead className="bg-accent/20 sticky top-0 backdrop-blur-sm z-10">
+                                    <thead className="bg-accent/20 sticky top-0 backdrop-blur-sm z-10 shadow-sm">
                                         <tr>
-                                            <th className="p-3 font-black uppercase tracking-wider border-b border-border/40">Status</th>
                                             <th className="p-3 font-black uppercase tracking-wider border-b border-border/40">Profesor</th>
-                                            <th className="p-3 font-black uppercase tracking-wider border-b border-border/40">Día</th>
-                                            <th className="p-3 font-black uppercase tracking-wider border-b border-border/40">Hora</th>
-                                            <th className="p-3 font-black uppercase tracking-wider border-b border-border/40">Sección (Excel)</th>
-                                            <th className="p-3 font-black uppercase tracking-wider border-b border-border/40">Match en BD</th>
+                                            <th className="p-3 font-black uppercase tracking-wider border-b border-border/40">Materia</th>
+                                            <th className="p-3 font-black uppercase tracking-wider border-b border-border/40">Sección</th>
+                                            <th className="p-3 font-black uppercase tracking-wider border-b border-border/40">Ocurrencia</th>
+                                            <th className="p-3 font-black uppercase tracking-wider border-b border-border/40 text-center">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/20">
                                         {filteredPreview.map((entry, i) => (
                                             <tr key={i} className={cn(
                                                 "hover:bg-accent/5 transition-colors",
-                                                !entry.matched && "bg-amber-50/50 dark:bg-amber-950/10"
+                                                !entry.valido && "bg-amber-50/50 dark:bg-amber-950/10"
                                             )}>
                                                 <td className="p-3">
-                                                    {entry.matched ? (
-                                                        <span className="flex items-center gap-1 text-emerald-600">
-                                                            <Check className="w-3 h-3" />
-                                                        </span>
-                                                    ) : (
-                                                        <span className="flex items-center gap-1 text-amber-500">
-                                                            <AlertTriangle className="w-3 h-3" />
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="p-3">
                                                     <div>
-                                                        <span className={cn(
-                                                            "font-bold",
-                                                            !entry.docenteId && "text-amber-600"
-                                                        )}>
+                                                        <span className={cn("font-bold", !entry.docenteId && "text-amber-600")}>
                                                             {entry.docenteNombre || entry.profesorRaw}
                                                         </span>
-                                                        {!entry.docenteId && (
-                                                            <p className="text-[9px] text-amber-500 font-bold mt-0.5">
-                                                                NO ENCONTRADO
-                                                            </p>
-                                                        )}
+                                                        {!entry.docenteId && <p className="text-[9px] text-amber-500 font-black mt-0.5">NUEVO</p>}
                                                     </div>
                                                 </td>
                                                 <td className="p-3">
-                                                    <span className="inline-block px-2 py-0.5 bg-primary/10 text-primary rounded text-[9px] font-black uppercase">
-                                                        {entry.diaSemana.substring(0, 3)}
-                                                    </span>
-                                                </td>
-                                                <td className="p-3 font-mono text-[10px]">
-                                                    {entry.horaInicio} - {entry.horaFin}
-                                                </td>
-                                                <td className="p-3 font-bold">
-                                                    {entry.seccionRaw}
-                                                    {entry.descripcion && (
-                                                        <p className="text-[9px] text-muted-foreground italic mt-0.5">
-                                                            {entry.descripcion}
-                                                        </p>
-                                                    )}
+                                                    <div>
+                                                        <span className={cn("font-bold", !entry.materiaId && "text-amber-500")}>
+                                                            {entry.materiaNombre || entry.materiaRaw}
+                                                        </span>
+                                                        {!entry.materiaId && entry.materiaRaw !== "Sin Materia" && <p className="text-[9px] text-amber-500 mt-0.5">NO REGISTRADA</p>}
+                                                    </div>
                                                 </td>
                                                 <td className="p-3">
-                                                    {entry.seccionNombre ? (
-                                                        <span className="inline-block px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 rounded text-[9px] font-black">
-                                                            {entry.seccionNombre}
+                                                    <div>
+                                                        <span className={cn("font-bold text-emerald-700", !entry.seccionId && "text-red-500")}>
+                                                            {entry.seccionNombre || entry.seccionRaw}
                                                         </span>
+                                                        {!entry.seccionId && <p className="text-[9px] text-red-500 font-bold mt-0.5">INVÁLIDO / VACÍO</p>}
+                                                    </div>
+                                                </td>
+                                                <td className="p-3">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="inline-block w-max px-2 py-0.5 bg-primary/10 text-primary rounded text-[9px] font-black uppercase">
+                                                            {entry.diaSemana}
+                                                        </span>
+                                                        <span className="font-mono font-bold text-muted-foreground">
+                                                            {entry.horaInicio} - {entry.horaFin}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 text-center">
+                                                    {entry.valido ? (
+                                                        <Check className="w-4 h-4 text-emerald-500 mx-auto" />
                                                     ) : (
-                                                        <span className="text-amber-500 text-[9px] font-bold">
-                                                            NO ENCONTRADA
-                                                        </span>
+                                                        <AlertTriangle className="w-4 h-4 text-amber-500 mx-auto" />
                                                     )}
                                                 </td>
                                             </tr>
@@ -607,9 +446,7 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
                         <div className="text-[10px] text-muted-foreground">
                             {step === "preview" && (
                                 <span>
-                                    Se importarán <strong className="text-emerald-600">{withSectionMatch}</strong> horarios.
-                                    {unmatchedProfCount > 0 && <span className="text-blue-500"> {unmatchedProfCount} profesores serán creados.</span>}
-                                    {withoutSection > 0 && <span className="text-amber-500"> {withoutSection} sin sección serán ignorados.</span>}
+                                    Bloques válidos a insertar: <strong className="text-emerald-600">{validCount}</strong>
                                 </span>
                             )}
                         </div>
@@ -618,19 +455,15 @@ export function BulkHorarioUploadModal({ isOpen, onClose, docentes, secciones }:
                                 onClick={onClose}
                                 className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-accent rounded-2xl transition-all"
                             >
-                                Cerrar
+                                Cancelar
                             </button>
-                            {step === "preview" && withSectionMatch > 0 && (
+                            {step === "preview" && validCount > 0 && (
                                 <button
                                     onClick={handleUpload}
                                     disabled={isLoading}
                                     className="flex items-center gap-2 px-8 py-3 bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest rounded-2xl hover:shadow-xl hover:shadow-primary/30 transition-all active:scale-95 disabled:opacity-50"
                                 >
-                                    {isLoading ? "Importando..." : (
-                                        <>
-                                            <Upload className="w-4 h-4" /> Importar {withSectionMatch} Horarios
-                                        </>
-                                    )}
+                                    {isLoading ? "Procesando BD..." : `Guardar ${validCount} Bloques`}
                                 </button>
                             )}
                         </div>

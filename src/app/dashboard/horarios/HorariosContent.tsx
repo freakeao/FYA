@@ -245,6 +245,7 @@ export function HorariosContent({ initialHorarios, secciones, materias, docentes
                 onClose={() => setIsBulkModalOpen(false)}
                 docentes={docentes}
                 secciones={secciones}
+                materias={materias}
             />
 
             <DeleteConfirmModal

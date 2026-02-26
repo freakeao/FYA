@@ -5,6 +5,30 @@ import { Modal } from "@/components/common/Modal";
 import { createHorario, updateHorario } from "@/lib/actions";
 import { toast } from "sonner";
 import { Clock, BookOpen, GraduationCap, User, Calendar } from "lucide-react";
+import { CustomTimeSelect } from "@/components/ui/custom-time-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+
+const TIME_OPTIONS = [
+    { label: "07:00 a.m.", value: "07:00" },
+    { label: "07:40 a.m.", value: "07:40" },
+    { label: "08:20 a.m.", value: "08:20" },
+    { label: "09:00 a.m.", value: "09:00" },
+    { label: "09:10 a.m.", value: "09:10" },
+    { label: "09:50 a.m.", value: "09:50" },
+    { label: "10:30 a.m.", value: "10:30" },
+    { label: "11:10 a.m.", value: "11:10" },
+    { label: "11:50 a.m.", value: "11:50" },
+    { label: "12:20 p.m.", value: "12:20" },
+    { label: "01:00 p.m.", value: "13:00" },
+    { label: "01:40 p.m.", value: "13:40" },
+    { label: "02:20 p.m.", value: "14:20" },
+    { label: "02:30 p.m.", value: "14:30" },
+    { label: "03:10 p.m.", value: "15:10" },
+    { label: "03:50 p.m.", value: "15:50" },
+    { label: "04:30 p.m.", value: "16:30" },
+    { label: "05:10 p.m.", value: "17:10" },
+    { label: "05:50 p.m.", value: "17:50" },
+];
 
 interface HorarioModalProps {
     isOpen: boolean;
@@ -109,8 +133,8 @@ export function HorarioModal({
                         type="button"
                         onClick={() => setTipoBloque("CLASE")}
                         className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${tipoBloque === "CLASE"
-                                ? "bg-primary text-primary-foreground shadow-md"
-                                : "text-muted-foreground hover:bg-accent"
+                            ? "bg-primary text-primary-foreground shadow-md"
+                            : "text-muted-foreground hover:bg-accent"
                             }`}
                     >
                         Clase Académica
@@ -119,8 +143,8 @@ export function HorarioModal({
                         type="button"
                         onClick={() => setTipoBloque("ACTIVIDAD")}
                         className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${tipoBloque === "ACTIVIDAD"
-                                ? "bg-indigo-600 text-white shadow-md"
-                                : "text-muted-foreground hover:bg-accent"
+                            ? "bg-indigo-600 text-white shadow-md"
+                            : "text-muted-foreground hover:bg-accent"
                             }`}
                     >
                         Actividad / Otro
@@ -136,24 +160,14 @@ export function HorarioModal({
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
                                     Sección / Grado
                                 </label>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
-                                        <GraduationCap className="w-full h-full" />
-                                    </div>
-                                    <select
-                                        required={tipoBloque === "CLASE"}
-                                        value={formData.seccionId}
-                                        onChange={(e) => setFormData({ ...formData, seccionId: e.target.value })}
-                                        className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold appearance-none cursor-pointer"
-                                    >
-                                        <option value="">Seleccione una sección...</option>
-                                        {secciones.map((s) => (
-                                            <option key={s.id} value={s.id}>
-                                                {s.nombre} - {s.grado}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <SearchableSelect
+                                    required={tipoBloque === "CLASE"}
+                                    value={formData.seccionId}
+                                    onChange={(val) => setFormData({ ...formData, seccionId: val })}
+                                    placeholder="Seleccione una sección..."
+                                    icon={<GraduationCap className="w-full h-full" />}
+                                    options={secciones.map((s) => ({ value: s.id, label: `${s.nombre} - ${s.grado}` }))}
+                                />
                             </div>
 
                             {/* Materia */}
@@ -161,24 +175,14 @@ export function HorarioModal({
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
                                     Materia
                                 </label>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
-                                        <BookOpen className="w-full h-full" />
-                                    </div>
-                                    <select
-                                        required={tipoBloque === "CLASE"}
-                                        value={formData.materiaId}
-                                        onChange={(e) => setFormData({ ...formData, materiaId: e.target.value })}
-                                        className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold appearance-none cursor-pointer"
-                                    >
-                                        <option value="">Seleccione una materia...</option>
-                                        {materias.map((m) => (
-                                            <option key={m.id} value={m.id}>
-                                                {m.nombre} {m.codigo ? `(${m.codigo})` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <SearchableSelect
+                                    required={tipoBloque === "CLASE"}
+                                    value={formData.materiaId}
+                                    onChange={(val) => setFormData({ ...formData, materiaId: val })}
+                                    placeholder="Seleccione una materia..."
+                                    icon={<BookOpen className="w-full h-full" />}
+                                    options={materias.map((m) => ({ value: m.id, label: `${m.nombre} ${m.codigo ? `(${m.codigo})` : ''}` }))}
+                                />
                             </div>
                         </>
                     ) : (
@@ -232,24 +236,14 @@ export function HorarioModal({
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
                             Responsable (Docente / Personal)
                         </label>
-                        <div className="relative group">
-                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
-                                <User className="w-full h-full" />
-                            </div>
-                            <select
-                                required
-                                value={formData.docenteId}
-                                onChange={(e) => setFormData({ ...formData, docenteId: e.target.value })}
-                                className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold appearance-none cursor-pointer"
-                            >
-                                <option value="">Seleccione un responsable...</option>
-                                {docentes.map((d) => (
-                                    <option key={d.id} value={d.id}>
-                                        {d.nombre} ({d.rol})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        <SearchableSelect
+                            required
+                            value={formData.docenteId}
+                            onChange={(val) => setFormData({ ...formData, docenteId: val })}
+                            placeholder="Seleccione un responsable..."
+                            icon={<User className="w-full h-full" />}
+                            options={docentes.map((d) => ({ value: d.id, label: `${d.nombre} (${d.rol})` }))}
+                        />
                     </div>
 
                     {/* Horas */}
@@ -258,35 +252,23 @@ export function HorarioModal({
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
                                 Hora Inicio
                             </label>
-                            <div className="relative group">
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors">
-                                    <Clock className="w-full h-full" />
-                                </div>
-                                <input
-                                    required
-                                    type="time"
-                                    value={formData.horaInicio}
-                                    onChange={(e) => setFormData({ ...formData, horaInicio: e.target.value })}
-                                    className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
-                                />
-                            </div>
+                            <CustomTimeSelect
+                                required
+                                value={formData.horaInicio}
+                                onChange={(e) => setFormData({ ...formData, horaInicio: e.target.value })}
+                                options={TIME_OPTIONS}
+                            />
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
                                 Hora Fin
                             </label>
-                            <div className="relative group">
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors">
-                                    <Clock className="w-full h-full" />
-                                </div>
-                                <input
-                                    required
-                                    type="time"
-                                    value={formData.horaFin}
-                                    onChange={(e) => setFormData({ ...formData, horaFin: e.target.value })}
-                                    className="w-full bg-accent/30 border border-border/40 rounded-2xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
-                                />
-                            </div>
+                            <CustomTimeSelect
+                                required
+                                value={formData.horaFin}
+                                onChange={(e) => setFormData({ ...formData, horaFin: e.target.value })}
+                                options={TIME_OPTIONS}
+                            />
                         </div>
                     </div>
                 </div>
