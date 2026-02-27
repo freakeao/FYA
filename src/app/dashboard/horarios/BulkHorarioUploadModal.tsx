@@ -80,8 +80,25 @@ function matchDocente(rawName: string, docentes: any[]): { id: string; nombre: s
 function matchMateria(rawMateria: string, materias: any[]): { id: string; nombre: string } | null {
     const cleaned = normalizeText(rawMateria);
     if (!cleaned) return null;
+
+    // 1. Direct Exact Match
     for (const m of materias) {
-        if (normalizeText(m.nombre).includes(cleaned) || cleaned.includes(normalizeText(m.nombre))) {
+        if (normalizeText(m.nombre) === cleaned) {
+            return { id: m.id, nombre: m.nombre };
+        }
+    }
+
+    // 2. Partial Match (Fallback)
+    for (const m of materias) {
+        const mNorm = normalizeText(m.nombre);
+        // Evitar que "CS I" haga match con "CS II" o "CS III", validando palabras completas si es corto
+        // Pero mantenemos includes general para cosas más largas
+        if (mNorm.includes(cleaned) || cleaned.includes(mNorm)) {
+            // Check boundaries if it's a short token like CS I
+            if (cleaned.length <= 4) {
+                if (mNorm === cleaned) return { id: m.id, nombre: m.nombre };
+                continue; // Si es muy corto, exigimos exactitud para evitar falsos positivos
+            }
             return { id: m.id, nombre: m.nombre };
         }
     }
@@ -91,6 +108,16 @@ function matchMateria(rawMateria: string, materias: any[]): { id: string; nombre
 function matchSeccion(rawSeccion: string, secciones: any[]): { id: string; nombre: string } | null {
     const cleaned = normalizeText(rawSeccion);
     if (!cleaned) return null;
+
+    // 1. Direct Exact Match
+    for (const s of secciones) {
+        const sNorm = normalizeText(`${s.nombre} ${s.grado}`);
+        if (sNorm === cleaned || normalizeText(s.nombre) === cleaned) {
+            return { id: s.id, nombre: `${s.nombre} - ${s.grado}` };
+        }
+    }
+
+    // 2. Partial Match
     for (const s of secciones) {
         const sNorm = normalizeText(`${s.nombre} ${s.grado}`);
         if (sNorm.includes(cleaned) || cleaned.includes(normalizeText(s.nombre))) {
