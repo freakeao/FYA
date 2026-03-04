@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ReportesContent } from "./ReportesContent";
 import { ClipboardCheck } from "lucide-react";
+import { getSecciones } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,8 @@ export default async function ReportesPage() {
     if (!session) {
         redirect("/login");
     }
+
+    const secciones = await getSecciones();
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
@@ -26,7 +29,10 @@ export default async function ReportesPage() {
                 </div>
             </header>
 
-            <ReportesContent userRole={session.user.rol} />
+            <ReportesContent
+                userRole={session.user.rol}
+                secciones={secciones.map((s: any) => ({ id: s.id, nombre: s.nombre }))}
+            />
         </div>
     );
 }

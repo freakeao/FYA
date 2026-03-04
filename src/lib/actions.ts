@@ -930,7 +930,7 @@ export async function getAsistenciaPersonalReport(startDate: string, endDate: st
     }
 }
 
-export async function getAsistenciaAlumnosReport(startDate: string, endDate: string) {
+export async function getAsistenciaAlumnosReport(startDate: string, endDate: string, seccionId?: string) {
     const session = await getSession();
     if (!session?.user) throw new Error("No autorizado");
 
@@ -945,14 +945,19 @@ export async function getAsistenciaAlumnosReport(startDate: string, endDate: str
     const isGlobalAdmin = role === "ADMINISTRADOR" || !userDeptId;
 
     // Filter logic:
-    // Global Admin: No filter
+    // Global Admin: No filter (unless seccionId is provided)
     // Coordinator: Filter by section department
     // Teacher: Filter by schedules assigned to them
-    const reportFilter = isGlobalAdmin
+    let reportFilter = isGlobalAdmin
         ? sql`1=1`
         : role === "COORDINADOR"
             ? eq(secciones.departamentoId, userDeptId)
             : eq(horarios.docenteId, userId);
+
+    // Add specific section filter if provided
+    if (seccionId) {
+        reportFilter = and(reportFilter, eq(secciones.id, seccionId)) as any;
+    }
 
     try {
         const result = await db

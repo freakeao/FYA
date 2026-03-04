@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Calendar, Users, Briefcase, FileText, Loader2 } from "lucide-react";
+import { Download, Calendar, Users, Briefcase, FileText, Loader2, Filter } from "lucide-react";
 import { cn, getVenezuelaToday } from "@/lib/utils";
 import { getAsistenciaPersonalReport, getAsistenciaAlumnosReport } from "@/lib/actions";
 import { exportToExcel } from "@/lib/excel";
@@ -9,12 +9,14 @@ import { toast } from "sonner";
 
 interface ReportesContentProps {
     userRole: string;
+    secciones: { id: string; nombre: string }[];
 }
 
-export function ReportesContent({ userRole }: ReportesContentProps) {
+export function ReportesContent({ userRole, secciones }: ReportesContentProps) {
     const today = getVenezuelaToday();
     const [startDate, setStartDate] = useState(today);
     const [endDate, setEndDate] = useState(today);
+    const [seccionId, setSeccionId] = useState<string>("TODAS");
     const [loading, setLoading] = useState(false);
 
     const handleExportPersonal = async () => {
@@ -37,11 +39,12 @@ export function ReportesContent({ userRole }: ReportesContentProps) {
     const handleExportAlumnos = async () => {
         setLoading(true);
         try {
-            const data = await getAsistenciaAlumnosReport(startDate, endDate);
+            const data = await getAsistenciaAlumnosReport(startDate, endDate, seccionId === "TODAS" ? undefined : seccionId);
             if (data.length === 0) {
                 toast.error("No se encontraron inasistencias de alumnos en este rango.");
             } else {
-                exportToExcel(data, `Inasistencias_Alumnos_${startDate}_a_${endDate}`, "Alumnos");
+                const suffix = seccionId !== "TODAS" ? `_Seccion_${seccionId}` : "";
+                exportToExcel(data, `Inasistencias_Alumnos_${startDate}_a_${endDate}${suffix}`, "Alumnos");
                 toast.success("Reporte de alumnos generado con éxito");
             }
         } catch (e) {
@@ -128,6 +131,23 @@ export function ReportesContent({ userRole }: ReportesContentProps) {
                             Reporte detallado de inasistencias por sección y materia. Útil para coordinadores de grado y reportes mensuales.
                         </p>
                     </div>
+
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-1 flex items-center gap-2">
+                            <Filter className="w-3 h-3" /> Filtrar por Sección
+                        </label>
+                        <select
+                            value={seccionId}
+                            onChange={(e) => setSeccionId(e.target.value)}
+                            className="w-full h-14 bg-card border-2 border-border/40 rounded-2xl px-6 text-sm font-bold outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all uppercase"
+                        >
+                            <option value="TODAS">TODAS LAS SECCIONES</option>
+                            {secciones.map((s) => (
+                                <option key={s.id} value={s.id}>{s.nombre}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     <button
                         onClick={handleExportAlumnos}
                         disabled={loading}
