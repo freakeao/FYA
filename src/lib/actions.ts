@@ -893,9 +893,14 @@ export async function deleteAsistenciaDocente(docenteId: string, fecha: string) 
 
 export async function getAsistenciaPersonalReport(startDate: string, endDate: string) {
     const session = await getSession();
-    if (session?.user?.rol !== "ADMINISTRADOR" && session?.user?.rol !== "COORDINADOR") {
+    const userRole = session?.user?.rol;
+    const userDeptId = session?.user?.departamentoId;
+
+    if (userRole !== "ADMINISTRADOR" && userRole !== "COORDINADOR") {
         throw new Error("No autorizado");
     }
+
+    const isGlobalAdmin = userRole === "ADMINISTRADOR" || !userDeptId;
 
     try {
         const result = await db
@@ -912,7 +917,8 @@ export async function getAsistenciaPersonalReport(startDate: string, endDate: st
                 and(
                     eq(asistenciaDocentes.presente, false),
                     sql`${asistenciaDocentes.fecha} >= ${startDate}`,
-                    sql`${asistenciaDocentes.fecha} <= ${endDate}`
+                    sql`${asistenciaDocentes.fecha} <= ${endDate}`,
+                    isGlobalAdmin ? sql`1=1` : eq(usuarios.departamentoId, userDeptId)
                 )
             )
             .orderBy(asistenciaDocentes.fecha);
@@ -926,10 +932,27 @@ export async function getAsistenciaPersonalReport(startDate: string, endDate: st
 
 export async function getAsistenciaAlumnosReport(startDate: string, endDate: string) {
     const session = await getSession();
-    const role = session?.user?.rol;
+    if (!session?.user) throw new Error("No autorizado");
+
+    const role = session.user.rol;
+    const userDeptId = session.user.departamentoId;
+    const userId = session.user.id;
+
     if (role !== "ADMINISTRADOR" && role !== "COORDINADOR" && role !== "DOCENTE") {
         throw new Error("No autorizado");
     }
+
+    const isGlobalAdmin = role === "ADMINISTRADOR" || !userDeptId;
+
+    // Filter logic:
+    // Global Admin: No filter
+    // Coordinator: Filter by section department
+    // Teacher: Filter by schedules assigned to them
+    const reportFilter = isGlobalAdmin
+        ? sql`1=1`
+        : role === "COORDINADOR"
+            ? eq(secciones.departamentoId, userDeptId)
+            : eq(horarios.docenteId, userId);
 
     try {
         const result = await db
@@ -953,7 +976,8 @@ export async function getAsistenciaAlumnosReport(startDate: string, endDate: str
             .where(
                 and(
                     sql`${registrosAsistencia.fecha} >= ${startDate}`,
-                    sql`${registrosAsistencia.fecha} <= ${endDate}`
+                    sql`${registrosAsistencia.fecha} <= ${endDate}`,
+                    reportFilter
                 )
             )
             .orderBy(registrosAsistencia.fecha);
