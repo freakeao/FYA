@@ -31,8 +31,8 @@ export default function LoginPage() {
             {/* Developer Credit */}
             <div className="absolute top-6 right-8 z-50 animate-in fade-in slide-in-from-right-4 duration-1000">
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
-                    <span className="opacity-50">Desarrollado Por:</span>
-                    <span className="text-[#e31b23] font-black text-sm md:text-base group-hover:scale-110 transition-transform cursor-default">@freakeao</span>
+                    <span className="opacity-50 text-[8px]">Desarrollado Por:</span>
+                    <span className="text-[#e31b23] font-black text-xs transition-transform cursor-default">Ing Víctor León</span>
                 </p>
             </div>
 

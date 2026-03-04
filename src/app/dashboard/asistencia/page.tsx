@@ -301,7 +301,7 @@ export default function AsistenciaPage() {
                                 <option value="" disabled>Cambiar clase...</option>
                                 {allClassesToday.map((c) => (
                                     <option key={c.id} value={c.id}>
-                                        {c.grado} "{c.seccion}" - {c.materia}
+                                        {c.seccion} - {c.materia}
                                     </option>
                                 ))}
                             </select>
@@ -338,7 +338,7 @@ export default function AsistenciaPage() {
                                 <div>
                                     <h3 className="font-bold text-xl">Conteo de Asistentes</h3>
                                     <p className="text-xs text-muted-foreground">
-                                        {claseActual.grado} "{claseActual.seccion}" - {claseActual.materia}
+                                        {claseActual.seccion} - {claseActual.materia}
                                     </p>
                                 </div>
                                 <button
@@ -443,45 +443,106 @@ export default function AsistenciaPage() {
                                     );
                                 })
                                 .map((clase) => (
-                                    <button
-                                        key={clase.id}
-                                        onClick={() => handleClassSelected(clase)}
-                                        className="group relative flex flex-col items-start p-6 bg-card hover:bg-accent/50 border border-border/40 hover:border-primary/20 rounded-[2rem] transition-all duration-300 hover:shadow-lg text-left w-full"
-                                    >
-                                        <div className="absolute top-6 right-6">
-                                            {clase.estado === 'Completado' ? (
-                                                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                                            ) : (
-                                                <AlertCircle className="w-6 h-6 text-amber-500/50 group-hover:text-amber-500 transition-colors" />
-                                            )}
-                                        </div>
-
-                                        <div className="mb-4">
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest">
-                                                {clase.grado} "{clase.seccion}"
-                                            </span>
-                                        </div>
-
-                                        <h4 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">
-                                            {clase.materia}
-                                        </h4>
-                                        <p className="text-xs text-muted-foreground font-medium mb-6">
-                                            Docente: {clase.docente}
-                                        </p>
-
-                                        <div className="mt-auto w-full flex items-center justify-between pt-4 border-t border-border/40">
-                                            <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                                                <Clock className="w-3.5 h-3.5" />
-                                                {formatTime12h(clase.horaInicio)} - {formatTime12h(clase.horaFin)}
-                                            </div>
+                                    <>
+                                        <button
+                                            key={clase.id}
+                                            onClick={() => handleClassSelected(clase)}
+                                            className="group relative flex flex-col items-start p-6 bg-white hover:bg-slate-50 border border-slate-100 rounded-[2rem] transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:scale-[1.02] text-left w-full overflow-hidden"
+                                        >
+                                            {/* Barra lateral de estado */}
                                             <div className={cn(
-                                                "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
-                                                clase.estado === 'Completado' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
-                                            )}>
-                                                {clase.estado || 'Pendiente'}
+                                                "absolute left-0 top-0 bottom-0 w-1.5 transition-all duration-500",
+                                                clase.estado === 'Completado' ? "bg-emerald-500" : "bg-amber-500"
+                                            )} />
+
+                                            <div className="flex items-center justify-between w-full mb-4">
+                                                <span className="inline-flex items-center px-3 py-1 rounded-xl bg-slate-50 text-slate-600 text-[10px] font-black uppercase tracking-widest border border-slate-100 group-hover:bg-primary/5 group-hover:text-primary group-hover:border-primary/10 transition-colors">
+                                                    {clase.seccion}
+                                                </span>
+
+                                                <div className={cn(
+                                                    "p-2 rounded-full transition-all duration-500",
+                                                    clase.estado === 'Completado' ? "bg-emerald-50 text-emerald-500" : "bg-amber-50 text-amber-500"
+                                                )}>
+                                                    {clase.estado === 'Completado' ? (
+                                                        <CheckCircle2 className="w-5 h-5" />
+                                                    ) : (
+                                                        <AlertCircle className="w-5 h-5 animate-pulse" />
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </button>
+
+                                            <div className="space-y-1 mb-6">
+                                                <h4 className="text-xl font-bold text-slate-900 group-hover:text-primary transition-colors leading-tight">
+                                                    {clase.materia}
+                                                </h4>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-primary/30 transition-colors" />
+                                                    <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider">
+                                                        {clase.docente}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-auto w-full flex items-center justify-between pt-5 border-t border-slate-50">
+                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest border border-slate-100 group-hover:bg-white transition-colors">
+                                                    <Clock className="w-3.5 h-3.5 text-primary" />
+                                                    {formatTime12h(clase.horaInicio)} - {formatTime12h(clase.horaFin)}
+                                                </div>
+
+                                                <span className={cn(
+                                                    "text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border",
+                                                    clase.estado === 'Completado'
+                                                        ? "bg-emerald-500/5 text-emerald-600 border-emerald-500/10"
+                                                        : "bg-amber-500/5 text-amber-600 border-amber-500/10"
+                                                )}>
+                                                    {clase.estado || 'Pendiente'}
+                                                </span>
+                                            </div>
+                                        </button>
+
+                                        {/* PUNTO DE RESTAURACIÓN (CÓDIGO ORIGINAL)
+                                        <button
+                                            key={clase.id}
+                                            onClick={() => handleClassSelected(clase)}
+                                            className="group relative flex flex-col items-start p-6 bg-card hover:bg-accent/50 border border-border/40 hover:border-primary/20 rounded-[2rem] transition-all duration-300 hover:shadow-lg text-left w-full"
+                                        >
+                                            <div className="absolute top-6 right-6">
+                                                {clase.estado === 'Completado' ? (
+                                                    <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                                                ) : (
+                                                    <AlertCircle className="w-6 h-6 text-amber-500/50 group-hover:text-amber-500 transition-colors" />
+                                                )}
+                                            </div>
+
+                                            <div className="mb-4">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest">
+                                                    {clase.grado} "{clase.seccion}"
+                                                </span>
+                                            </div>
+
+                                            <h4 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">
+                                                {clase.materia}
+                                            </h4>
+                                            <p className="text-xs text-muted-foreground font-medium mb-6">
+                                                Docente: {clase.docente}
+                                            </p>
+
+                                            <div className="mt-auto w-full flex items-center justify-between pt-4 border-t border-border/40">
+                                                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                                                    <Clock className="w-3.5 h-3.5" />
+                                                    {formatTime12h(clase.horaInicio)} - {formatTime12h(clase.horaFin)}
+                                                </div>
+                                                <div className={cn(
+                                                    "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
+                                                    clase.estado === 'Completado' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                                                )}>
+                                                    {clase.estado || 'Pendiente'}
+                                                </div>
+                                            </div>
+                                        </button>
+                                        */}
+                                    </>
                                 ))}
                         </div>
                     )}

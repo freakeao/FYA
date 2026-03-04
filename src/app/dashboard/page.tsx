@@ -50,7 +50,7 @@ export default async function DashboardPage() {
                 {/* Section for Teachers: Their classes (HIDDEN FOR ADMIN COORD) */}
                 {data.viewType !== "ADMINISTRATIVE" && (
                     <div className={cn(
-                        "premium-card p-6 rounded-[2rem] flex flex-col h-[380px]",
+                        "premium-card p-6 rounded-[2rem] flex flex-col h-[340px]",
                         userRole === "DOCENTE" ? "col-span-4" : "col-span-4"
                     )}>
                         <div className="flex items-center justify-between mb-4">
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
 
                 {/* Section for Admin/Coord: Teacher absences (OR ALL STAFF ABSENCES FOR ADMIN COORD) */}
                 <div className={cn(
-                    "premium-card p-6 rounded-[2rem] flex flex-col h-[380px]",
+                    "premium-card p-6 rounded-[2rem] flex flex-col h-[340px]",
                     data.viewType === "ADMINISTRATIVE" ? "col-span-7" : "col-span-3"
                 )}>
                     <div className="flex items-center justify-between mb-4">
