@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db/db";
-import { secciones, materias, estudiantes, horarios, registrosAsistencia, inasistenciasAlumnos, usuarios, asistenciaDocentes, departamentos, seccionesDocentes } from "@/lib/db/schema";
+import { secciones, materias, estudiantes, horarios, registrosAsistencia, inasistenciasAlumnos, usuarios, asistenciaDocentes, departamentos, seccionesDocentes, permisosDocentes } from "@/lib/db/schema";
 import { eq, and, sql, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { login, logout, getSession } from "./auth";
@@ -35,31 +35,45 @@ export async function getSecciones() {
         departamentoId: secciones.departamentoId
     };
 
+    let allSecciones: any[] = [];
+
     // Re-implementing with safe pattern
     try {
         const results = await db.select(baseCols)
             .from(secciones)
-            .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id))
-            .then((res: any) => res as any[]);
-
-        return isGlobalAdmin ? results : results.filter((s: any) => String(s.departamentoId) === String(userDeptId));
+            .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id));
+        allSecciones = results as any[];
     } catch (e: any) {
         // Fallback to legacy column
         try {
             const fallbackCols = { ...baseCols, departamentoId: sql<string>`departamento` };
             const results = await db.select(fallbackCols)
                 .from(secciones)
-                .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id)) as any[];
-            return isGlobalAdmin ? results : results.filter((s: any) => String(s.departamentoId) === String(userDeptId));
+                .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id));
+            allSecciones = results as any[];
         } catch (e2) {
             // Final fallback
             const finalCols = { ...baseCols };
             delete (finalCols as any).departamentoId;
-            return await db.select(finalCols)
+            const results = await db.select(finalCols)
                 .from(secciones)
                 .leftJoin(usuarios, eq(secciones.docenteGuiaId, usuarios.id));
+            allSecciones = results as any[];
         }
     }
+
+    if (isGlobalAdmin) return allSecciones;
+
+    if (userRole === "DOCENTE") {
+        const userId = session?.user?.id;
+        const misHorarios = await db.selectDistinct({ seccionId: horarios.seccionId })
+            .from(horarios)
+            .where(eq(horarios.docenteId, userId));
+        const misSeccionesIds = misHorarios.map((h: any) => h.seccionId);
+        return allSecciones.filter(s => misSeccionesIds.includes(s.id));
+    }
+
+    return allSecciones.filter((s: any) => String(s.departamentoId) === String(userDeptId));
 }
 
 export async function getSeccion(id: string) {
@@ -821,7 +835,7 @@ export async function deleteEstudiante(formData: FormData) {
     }
 }
 
-export async function upsertAsistenciaDocente(data: { docenteId: string; presente: boolean; observaciones?: string; fecha?: string; tipo?: string }) {
+export async function upsertAsistenciaDocente(data: { docenteId: string; presente: boolean; observaciones?: string; fecha?: string; tipo?: string; horarioId?: string | null }) {
     const session = await getSession();
     if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) {
         return { error: "No autorizado" };
@@ -830,15 +844,23 @@ export async function upsertAsistenciaDocente(data: { docenteId: string; present
     const fechaFinal = data.fecha || getVenezuelaDate();
 
     try {
+        // Build where clause: if horarioId is provided, upsert per block. Otherwise per day (horarioId null).
+        const whereClause = data.horarioId
+            ? and(
+                eq(asistenciaDocentes.docenteId, data.docenteId),
+                eq(asistenciaDocentes.fecha, fechaFinal),
+                eq(asistenciaDocentes.horarioId, data.horarioId)
+            )
+            : and(
+                eq(asistenciaDocentes.docenteId, data.docenteId),
+                eq(asistenciaDocentes.fecha, fechaFinal),
+                sql`${asistenciaDocentes.horarioId} IS NULL`
+            );
+
         const existing = await db
             .select()
             .from(asistenciaDocentes)
-            .where(
-                and(
-                    eq(asistenciaDocentes.docenteId, data.docenteId),
-                    eq(asistenciaDocentes.fecha, fechaFinal)
-                )
-            )
+            .where(whereClause)
             .limit(1);
 
         if (existing.length > 0) {
@@ -847,7 +869,7 @@ export async function upsertAsistenciaDocente(data: { docenteId: string; present
                 .set({
                     presente: data.presente,
                     observaciones: data.observaciones || "",
-                    tipo: data.presente ? null : (data.tipo || "INJUSTIFICADA"), // Clear tipo if present, else use provided or default
+                    tipo: data.presente ? null : (data.tipo || "INJUSTIFICADA"),
                     coordinadorId: session.user.id
                 })
                 .where(eq(asistenciaDocentes.id, existing[0].id));
@@ -856,6 +878,7 @@ export async function upsertAsistenciaDocente(data: { docenteId: string; present
                 docenteId: data.docenteId,
                 coordinadorId: session.user.id,
                 fecha: fechaFinal,
+                horarioId: data.horarioId || null,
                 presente: data.presente,
                 observaciones: data.observaciones || "",
                 tipo: data.presente ? null : (data.tipo || "INJUSTIFICADA"),
@@ -865,29 +888,169 @@ export async function upsertAsistenciaDocente(data: { docenteId: string; present
         revalidatePath("/dashboard/asistencia/personal");
         return { success: true, message: "Asistencia actualizada correctamente" };
     } catch (e) {
+        console.error(e);
         return { error: "Error al registrar la asistencia" };
     }
 }
 
-export async function deleteAsistenciaDocente(docenteId: string, fecha: string) {
+export async function deleteAsistenciaDocente(docenteId: string, fecha: string, horarioId?: string | null) {
     const session = await getSession();
     if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) {
         return { error: "No autorizado" };
     }
 
     try {
-        await db.delete(asistenciaDocentes)
-            .where(
-                and(
-                    eq(asistenciaDocentes.docenteId, docenteId),
-                    eq(asistenciaDocentes.fecha, fecha)
-                )
+        const whereClause = horarioId
+            ? and(
+                eq(asistenciaDocentes.docenteId, docenteId),
+                eq(asistenciaDocentes.fecha, fecha),
+                eq(asistenciaDocentes.horarioId, horarioId)
+            )
+            : and(
+                eq(asistenciaDocentes.docenteId, docenteId),
+                eq(asistenciaDocentes.fecha, fecha)
             );
+
+        await db.delete(asistenciaDocentes).where(whereClause);
 
         revalidatePath("/dashboard/asistencia/personal");
         return { success: true, message: "Asistencia eliminada (reset)" };
     } catch (error) {
         return { success: false, error: "Error al eliminar asistencia" };
+    }
+}
+
+// --- HORARIOS DEL DÍA (for block-level absence selection) ---
+export async function getHorariosDelDia(docenteId: string, fecha: string) {
+    const session = await getSession();
+    if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) {
+        return [];
+    }
+
+    const dateObj = new Date(fecha + 'T12:00:00');
+    const diaSemanaNum = dateObj.getDay();
+    const diaSemanaMapLocal: Record<number, string> = {
+        0: "DOMINGO", 1: "LUNES", 2: "MARTES",
+        3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
+    };
+    const diaSemana = diaSemanaMapLocal[diaSemanaNum];
+
+    try {
+        return await db
+            .select({
+                id: horarios.id,
+                horaInicio: horarios.horaInicio,
+                horaFin: horarios.horaFin,
+                materia: materias.nombre,
+                seccion: secciones.nombre,
+            })
+            .from(horarios)
+            .innerJoin(materias, eq(horarios.materiaId, materias.id))
+            .innerJoin(secciones, eq(horarios.seccionId, secciones.id))
+            .where(
+                and(
+                    eq(horarios.docenteId, docenteId),
+                    eq(horarios.diaSemana, diaSemana as any)
+                )
+            )
+            .orderBy(horarios.horaInicio);
+    } catch {
+        return [];
+    }
+}
+
+// --- PERMISOS DOCENTES CRUD ---
+export async function createPermiso(data: {
+    docenteId: string;
+    tipo: string;
+    fechaInicio: string;
+    fechaFin: string;
+    observaciones?: string;
+}) {
+    const session = await getSession();
+    if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) {
+        return { error: "No autorizado" };
+    }
+
+    try {
+        await db.insert(permisosDocentes).values({
+            docenteId: data.docenteId,
+            coordinadorId: session.user.id,
+            tipo: data.tipo,
+            fechaInicio: data.fechaInicio,
+            fechaFin: data.fechaFin,
+            observaciones: data.observaciones || "",
+        });
+
+        revalidatePath("/dashboard/asistencia/permisos");
+        return { success: true };
+    } catch (e) {
+        console.error(e);
+        return { error: "Error al crear el permiso" };
+    }
+}
+
+export async function deletePermiso(id: string) {
+    const session = await getSession();
+    if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) {
+        return { error: "No autorizado" };
+    }
+
+    try {
+        await db.delete(permisosDocentes).where(eq(permisosDocentes.id, id));
+        revalidatePath("/dashboard/asistencia/permisos");
+        return { success: true };
+    } catch {
+        return { error: "Error al eliminar el permiso" };
+    }
+}
+
+export async function getPermisos() {
+    const session = await getSession();
+    if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) {
+        return [];
+    }
+
+    const userDeptId = session.user.departamentoId;
+    const isGlobalAdmin = session.user.rol === "ADMINISTRADOR" || !userDeptId;
+
+    try {
+        const results = await db
+            .select({
+                id: permisosDocentes.id,
+                tipo: permisosDocentes.tipo,
+                fechaInicio: permisosDocentes.fechaInicio,
+                fechaFin: permisosDocentes.fechaFin,
+                observaciones: permisosDocentes.observaciones,
+                createdAt: permisosDocentes.createdAt,
+                docente: usuarios.nombre,
+                docenteId: permisosDocentes.docenteId,
+                departamentoId: usuarios.departamentoId,
+            })
+            .from(permisosDocentes)
+            .innerJoin(usuarios, eq(permisosDocentes.docenteId, usuarios.id))
+            .orderBy(permisosDocentes.fechaInicio);
+
+        return isGlobalAdmin
+            ? results
+            : results.filter((r: any) => String(r.departamentoId) === String(userDeptId));
+    } catch {
+        return [];
+    }
+}
+
+export async function getDocentesSinPermisos() {
+    const session = await getSession();
+    if (!session) return [];
+
+    try {
+        return await db
+            .selectDistinct({ id: usuarios.id, nombre: usuarios.nombre })
+            .from(horarios)
+            .innerJoin(usuarios, eq(horarios.docenteId, usuarios.id))
+            .orderBy(usuarios.nombre);
+    } catch {
+        return [];
     }
 }
 
@@ -908,6 +1071,10 @@ export async function getAsistenciaPersonalReport(startDate: string, endDate: st
                 fecha: asistenciaDocentes.fecha,
                 docente: usuarios.nombre,
                 rol: usuarios.rol,
+                tipo: asistenciaDocentes.tipo,
+                bloque: sql<string>`CASE WHEN ${asistenciaDocentes.horarioId} IS NOT NULL THEN (SELECT cast(h.hora_inicio as text) || ' - ' || cast(h.hora_fin as text) FROM horarios h WHERE h.id = ${asistenciaDocentes.horarioId}) ELSE 'DÍA COMPLETO' END`,
+                materia: sql<string>`CASE WHEN ${asistenciaDocentes.horarioId} IS NOT NULL THEN (SELECT m.nombre FROM materias m INNER JOIN horarios h ON h.materia_id = m.id WHERE h.id = ${asistenciaDocentes.horarioId}) ELSE NULL END`,
+                seccion: sql<string>`CASE WHEN ${asistenciaDocentes.horarioId} IS NOT NULL THEN (SELECT s.nombre FROM secciones s INNER JOIN horarios h ON h.seccion_id = s.id WHERE h.id = ${asistenciaDocentes.horarioId}) ELSE NULL END`,
                 coordinador: sql<string>`(SELECT nombre FROM usuarios u2 WHERE u2.id = ${asistenciaDocentes.coordinadorId})`,
                 observaciones: asistenciaDocentes.observaciones
             })
@@ -930,7 +1097,7 @@ export async function getAsistenciaPersonalReport(startDate: string, endDate: st
     }
 }
 
-export async function getAsistenciaAlumnosReport(startDate: string, endDate: string, seccionId?: string) {
+export async function getAsistenciaAlumnosReport(startDate: string, endDate: string, seccionId?: string, estudianteId?: string) {
     const session = await getSession();
     if (!session?.user) throw new Error("No autorizado");
 
@@ -959,12 +1126,17 @@ export async function getAsistenciaAlumnosReport(startDate: string, endDate: str
         reportFilter = and(reportFilter, eq(secciones.id, seccionId)) as any;
     }
 
+    // Add specific student filter if provided
+    if (estudianteId) {
+        reportFilter = and(reportFilter, eq(inasistenciasAlumnos.estudianteId, estudianteId)) as any;
+    }
+
     try {
         const result = await db
             .select({
                 fecha: registrosAsistencia.fecha,
                 estudiante: estudiantes.nombre,
-                genero: estudiantes.genero,
+                motivo: inasistenciasAlumnos.observacion,
                 numeroLista: estudiantes.numeroLista,
                 seccion: secciones.nombre,
                 materia: materias.nombre,
@@ -1240,7 +1412,7 @@ export async function getDashboardData() {
                 ))
                 .catch(() => [] as any[]),
             db
-                .select({
+                .selectDistinct({
                     nombre: usuarios.nombre,
                     id: usuarios.id
                 })
@@ -1250,13 +1422,17 @@ export async function getDashboardData() {
                     and(
                         eq(asistenciaDocentes.fecha, today),
                         eq(asistenciaDocentes.presente, false),
-                        (isGlobalAdmin || !userDeptId) ? sql`1=1` : eq(usuarios.departamentoId, userDeptId)
+                        userRole === "DOCENTE"
+                            ? eq(usuarios.id, session.user.id)
+                            : (isGlobalAdmin || !userDeptId)
+                                ? sql`1=1`
+                                : eq(usuarios.departamentoId, userDeptId)
                     )
                 )
                 .catch(() => [] as any[]),
             // LISTA: Alumnos ausentes detallados
             db
-                .select({
+                .selectDistinct({
                     id: estudiantes.id,
                     nombre: estudiantes.nombre,
                     seccion: secciones.nombre,

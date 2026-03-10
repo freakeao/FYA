@@ -7,13 +7,15 @@ import {
     UserX,
     UserCog,
     ShieldCheck,
-    BarChart3
+    BarChart3,
+    FileCheck
 } from "lucide-react";
 
 export const menuItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Asistencia Alumnos", href: "/dashboard/asistencia", icon: ClipboardCheck },
     { name: "Asistencia Personal", href: "/dashboard/asistencia/personal", icon: ShieldCheck, adminOrCoord: true },
+    { name: "Permisos y Reposos", href: "/dashboard/asistencia/permisos", icon: FileCheck, adminOrCoord: true },
     { name: "Horarios", href: "/dashboard/horarios", icon: Calendar, adminOrCoord: true },
     { name: "Secciones", href: "/dashboard/secciones", icon: Users, adminOrCoord: true },
     { name: "Materias", href: "/dashboard/materias", icon: BookOpen, adminOrCoord: true },

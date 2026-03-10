@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Download, Calendar, Users, Briefcase, FileText, Loader2, Filter } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Calendar, Users, Briefcase, FileText, Loader2, Filter, User, Search } from "lucide-react";
 import { cn, getVenezuelaToday } from "@/lib/utils";
-import { getAsistenciaPersonalReport, getAsistenciaAlumnosReport } from "@/lib/actions";
+import { getAsistenciaPersonalReport, getAsistenciaAlumnosReport, getEstudiantesBySeccion } from "@/lib/actions";
 import { exportToExcel } from "@/lib/excel";
 import { toast } from "sonner";
 
@@ -17,7 +17,26 @@ export function ReportesContent({ userRole, secciones }: ReportesContentProps) {
     const [startDate, setStartDate] = useState(today);
     const [endDate, setEndDate] = useState(today);
     const [seccionId, setSeccionId] = useState<string>("TODAS");
+    const [estudiantes, setEstudiantes] = useState<any[]>([]);
+    const [estudianteId, setEstudianteId] = useState<string>("TODOS");
+    const [studentSearch, setStudentSearch] = useState("");
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (seccionId === "TODAS") {
+            setEstudiantes([]);
+            setEstudianteId("TODOS");
+            setStudentSearch("TODOS LOS ESTUDIANTES");
+            return;
+        }
+
+        getEstudiantesBySeccion(seccionId).then((data) => {
+            setEstudiantes(data);
+            setEstudianteId("TODOS");
+            setStudentSearch("TODOS LOS ESTUDIANTES");
+        }).catch(console.error);
+    }, [seccionId]);
 
     const handleExportPersonal = async () => {
         setLoading(true);
@@ -37,13 +56,27 @@ export function ReportesContent({ userRole, secciones }: ReportesContentProps) {
     };
 
     const handleExportAlumnos = async () => {
+        if (seccionId !== "TODAS" && estudianteId === "") {
+            toast.error("Debe seleccionar un estudiante válido de la lista o 'TODOS'.");
+            return;
+        }
+
         setLoading(true);
         try {
-            const data = await getAsistenciaAlumnosReport(startDate, endDate, seccionId === "TODAS" ? undefined : seccionId);
+            const data = await getAsistenciaAlumnosReport(
+                startDate,
+                endDate,
+                seccionId === "TODAS" ? undefined : seccionId,
+                estudianteId === "TODOS" ? undefined : estudianteId
+            );
             if (data.length === 0) {
                 toast.error("No se encontraron inasistencias de alumnos en este rango.");
             } else {
-                const suffix = seccionId !== "TODAS" ? `_Seccion_${seccionId}` : "";
+                let suffix = seccionId !== "TODAS" ? `_Seccion_${seccionId}` : "";
+                if (estudianteId !== "TODOS") {
+                    const estName = estudiantes.find(e => e.id === estudianteId)?.nombre || estudianteId;
+                    suffix += `_Estudiante_${estName.replace(/\s+/g, '_')}`;
+                }
                 exportToExcel(data, `Inasistencias_Alumnos_${startDate}_a_${endDate}${suffix}`, "Alumnos");
                 toast.success("Reporte de alumnos generado con éxito");
             }
@@ -146,6 +179,87 @@ export function ReportesContent({ userRole, secciones }: ReportesContentProps) {
                                 <option key={s.id} value={s.id}>{s.nombre}</option>
                             ))}
                         </select>
+                    </div>
+
+                    <div className="space-y-3 relative">
+                        <label className={cn(
+                            "text-[10px] font-black uppercase tracking-[0.2em] ml-1 flex items-center gap-2 transition-colors",
+                            seccionId === "TODAS" ? "text-muted-foreground/30" : "text-muted-foreground/60"
+                        )}>
+                            <Search className="w-3 h-3" /> Buscar Estudiante
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder={seccionId === "TODAS" ? "TODOS LOS ESTUDIANTES" : "Escriba o seleccione un estudiante..."}
+                                value={studentSearch}
+                                onChange={(e) => {
+                                    setStudentSearch(e.target.value);
+                                    setEstudianteId(""); // Reset strict ID upon typing
+                                    setIsDropdownOpen(true);
+                                }}
+                                onFocus={() => {
+                                    if (estudianteId === "TODOS" && studentSearch === "TODOS LOS ESTUDIANTES") {
+                                        setStudentSearch("");
+                                    }
+                                    setIsDropdownOpen(true);
+                                }}
+                                onBlur={() => {
+                                    setTimeout(() => {
+                                        setIsDropdownOpen(false);
+                                        // Auto-fallback if they typed nothing
+                                        if (studentSearch.trim() === "") {
+                                            setEstudianteId("TODOS");
+                                            setStudentSearch("TODOS LOS ESTUDIANTES");
+                                        }
+                                    }, 200);
+                                }}
+                                disabled={seccionId === "TODAS"}
+                                className="w-full h-14 bg-card border-2 border-border/40 rounded-2xl px-6 text-sm font-bold outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all uppercase disabled:opacity-50 disabled:cursor-not-allowed placeholder:font-bold placeholder:text-muted-foreground/50"
+                            />
+
+                            {/* Dropdown Options List */}
+                            {isDropdownOpen && seccionId !== "TODAS" && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto p-2 min-w-full">
+                                    <button
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            setEstudianteId("TODOS");
+                                            setStudentSearch("TODOS LOS ESTUDIANTES");
+                                            setIsDropdownOpen(false);
+                                        }}
+                                        className={cn(
+                                            "w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-colors mb-1",
+                                            estudianteId === "TODOS" ? "bg-emerald-500/10 text-emerald-600" : "hover:bg-accent text-slate-600 dark:text-slate-400"
+                                        )}
+                                    >
+                                        TODOS LOS ESTUDIANTES
+                                    </button>
+
+                                    {estudiantes.filter(e => e.nombre.toLowerCase().includes(studentSearch.toLowerCase())).length === 0 ? (
+                                        <p className="px-4 py-4 text-xs font-bold text-muted-foreground uppercase tracking-widest text-center">No se encontraron resultados</p>
+                                    ) : (
+                                        estudiantes.filter(e => e.nombre.toLowerCase().includes(studentSearch.toLowerCase())).map((e) => (
+                                            <button
+                                                key={e.id}
+                                                onMouseDown={(evt) => {
+                                                    evt.preventDefault();
+                                                    setEstudianteId(e.id);
+                                                    setStudentSearch(e.nombre);
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                                className={cn(
+                                                    "w-full text-left px-4 py-3 rounded-xl text-xs font-bold uppercase transition-colors mb-1 truncate",
+                                                    estudianteId === e.id ? "bg-emerald-500/10 text-emerald-600" : "hover:bg-accent text-slate-700 dark:text-slate-300"
+                                                )}
+                                            >
+                                                {e.nombre}
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <button

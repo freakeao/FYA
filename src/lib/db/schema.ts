@@ -83,9 +83,21 @@ export const asistenciaDocentes = pgTable("asistencia_docentes", {
   docenteId: uuid("docente_id").references(() => usuarios.id).notNull(),
   coordinadorId: uuid("coordinador_id").references(() => usuarios.id).notNull(),
   fecha: date("fecha").notNull(),
+  horarioId: uuid("horario_id").references(() => horarios.id, { onDelete: "set null" }), // null = día completo
   presente: boolean("presente").default(true).notNull(),
   observaciones: text("observaciones"),
   tipo: text("tipo"), // INJUSTIFICADA, REPOSO_MEDICO, PERMISO_PERSONAL, OTRO
+});
+
+export const permisosDocentes = pgTable("permisos_docentes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  docenteId: uuid("docente_id").references(() => usuarios.id, { onDelete: "cascade" }).notNull(),
+  coordinadorId: uuid("coordinador_id").references(() => usuarios.id).notNull(),
+  tipo: text("tipo").notNull(), // REPOSO_MEDICO, PERMISO_PERSONAL, BECA, VACACIONES, OTRO
+  fechaInicio: date("fecha_inicio").notNull(),
+  fechaFin: date("fecha_fin").notNull(),
+  observaciones: text("observaciones"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // --- RELATIONS ---
@@ -174,6 +186,23 @@ export const asistenciaDocentesRelations = relations(asistenciaDocentes, ({ one 
     fields: [asistenciaDocentes.coordinadorId],
     references: [usuarios.id],
     relationName: "asistencia_coordinador"
+  }),
+  horario: one(horarios, {
+    fields: [asistenciaDocentes.horarioId],
+    references: [horarios.id],
+  }),
+}));
+
+export const permisosDocentesRelations = relations(permisosDocentes, ({ one }) => ({
+  docente: one(usuarios, {
+    fields: [permisosDocentes.docenteId],
+    references: [usuarios.id],
+    relationName: "permiso_docente"
+  }),
+  coordinador: one(usuarios, {
+    fields: [permisosDocentes.coordinadorId],
+    references: [usuarios.id],
+    relationName: "permiso_coordinador"
   }),
 }));
 
