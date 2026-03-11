@@ -7,6 +7,7 @@ import { upsertAsistenciaDocente, deleteAsistenciaDocente, getHorariosDelDia } f
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { formatToVenezuelaDate, getVenezuelaDate, dateToYYYYMMDD } from "@/lib/dateUtils";
 
 interface AsistenciaPersonalContentProps {
     docentes: any[];
@@ -202,7 +203,7 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                         onClick={() => {
                             const d = new Date(selectedDate + "T12:00:00");
                             d.setDate(d.getDate() - 1);
-                            router.push(`/dashboard/asistencia/personal?date=${d.toISOString().split("T")[0]}`);
+                            router.push(`/dashboard/asistencia/personal?date=${dateToYYYYMMDD(d)}`);
                         }}
                         className="h-11 w-11 flex items-center justify-center rounded-2xl hover:bg-accent transition-all active:scale-90 text-muted-foreground hover:text-primary"
                         title="Día Anterior"
@@ -217,10 +218,10 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                         <CalendarIcon className="w-4 h-4 text-primary/40 mr-3" />
                         <div className="flex flex-col items-center">
                             <span className="text-[9px] font-black text-primary/60 uppercase tracking-widest leading-none mb-0.5">
-                                {new Date(selectedDate + "T12:00:00").toLocaleDateString('es-ES', { weekday: 'long' })}
+                                {formatToVenezuelaDate(selectedDate, { weekday: 'long' })}
                             </span>
                             <span className="text-xs font-black uppercase tracking-tighter">
-                                {new Date(selectedDate + "T12:00:00").toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                {formatToVenezuelaDate(selectedDate)}
                             </span>
                         </div>
                         <input
@@ -237,7 +238,7 @@ export function AsistenciaPersonalContent({ docentes, asistenciaInicial, selecte
                         onClick={() => {
                             const d = new Date(selectedDate + "T12:00:00");
                             d.setDate(d.getDate() + 1);
-                            router.push(`/dashboard/asistencia/personal?date=${d.toISOString().split("T")[0]}`);
+                            router.push(`/dashboard/asistencia/personal?date=${dateToYYYYMMDD(d)}`);
                         }}
                         className="h-11 w-11 flex items-center justify-center rounded-2xl hover:bg-accent transition-all active:scale-90 text-muted-foreground hover:text-primary"
                         title="Día Siguiente"

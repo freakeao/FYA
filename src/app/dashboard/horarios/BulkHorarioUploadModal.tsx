@@ -52,8 +52,15 @@ function extractTime(timeStr: string): string {
     if (!match) return "";
     let hour = parseInt(match[1]);
     const minute = parseInt(match[2]);
-    if (cleaned.includes("pm") && hour < 12) hour += 12;
-    if (cleaned.includes("am") && hour === 12) hour = 0;
+
+    // Si dice 1 y no tiene sufijo am/pm, asumimos que es 1 PM (13:00) para este contexto escolar
+    if (hour === 1 && !cleaned.includes("am") && !cleaned.includes("pm")) {
+        hour = 13;
+    } else {
+        if (cleaned.includes("pm") && hour < 12) hour += 12;
+        if (cleaned.includes("am") && hour === 12) hour = 0;
+    }
+
     return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 }
 

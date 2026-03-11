@@ -61,6 +61,14 @@ export function HorarioModal({
         descripcion: ""
     });
 
+    const sanitizeTime = (timeStr: string) => {
+        if (!timeStr) return "";
+        // Convierte "07:00:00" -> "07:00"
+        const [h, m] = timeStr.split(":");
+        if (!h || !m) return "";
+        return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+    };
+
     useEffect(() => {
         setFormData(prev => ({ ...prev, diaSemana: day }));
     }, [day]);
@@ -74,8 +82,8 @@ export function HorarioModal({
                 seccionId: editingHorario.seccionId || "",
                 materiaId: editingHorario.materiaId || "",
                 docenteId: editingHorario.docenteId || "",
-                horaInicio: editingHorario.horaInicio || "",
-                horaFin: editingHorario.horaFin || "",
+                horaInicio: sanitizeTime(editingHorario.horaInicio),
+                horaFin: sanitizeTime(editingHorario.horaFin),
                 diaSemana: editingHorario.diaSemana || day,
                 descripcion: editingHorario.descripcion || ""
             });

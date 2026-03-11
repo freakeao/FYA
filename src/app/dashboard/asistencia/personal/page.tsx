@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
 import { AsistenciaPersonalContent } from "./AsistenciaPersonalContent";
+import { getVenezuelaDate, getVenezuelaDayOfWeek, formatToVenezuelaDate } from "@/lib/dateUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -14,25 +15,11 @@ export default async function AsistenciaPersonalPage({ searchParams }: { searchP
     }
 
     const { date } = await searchParams;
-
-    // Obtener fecha actual en Venezuela (America/Caracas)
-    const venezuelaDate = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/Caracas',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    }).format(new Date());
-
-    const fechaSeleccionada = date || venezuelaDate;
+    const fechaSeleccionada = date || getVenezuelaDate();
 
     // Calcular día de la semana de la fecha seleccionada
     const selectedDateObj = new Date(fechaSeleccionada + 'T12:00:00');
-    const diaSemanaNum = selectedDateObj.getDay();
-    const diaSemanaMap: Record<number, string> = {
-        0: "DOMINGO", 1: "LUNES", 2: "MARTES",
-        3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
-    };
-    const diaSemana = diaSemanaMap[diaSemanaNum];
+    const diaSemana = getVenezuelaDayOfWeek(selectedDateObj);
 
     // Obtener datos en paralelo
     const [personalConHorarios, asistenciaHoy] = await Promise.all([
@@ -57,7 +44,7 @@ export default async function AsistenciaPersonalPage({ searchParams }: { searchP
             <header>
                 <h1 className="text-4xl font-black tracking-tighter uppercase">Asistencia de Personal</h1>
                 <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest mt-1">
-                    Control de presencia docente - {new Date(fechaSeleccionada + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    Control de presencia docente - {formatToVenezuelaDate(fechaSeleccionada, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
             </header>
 

@@ -17,6 +17,7 @@ import { DeleteConfirmModal } from "@/components/common/DeleteConfirmModal";
 import { MateriaModal } from "./MateriaModal";
 import { Plus } from "lucide-react";
 import { BulkMateriaModal } from "./BulkMateriaModal";
+import { getVenezuelaDate } from "@/lib/dateUtils";
 
 interface MateriasContentProps {
     initialMaterias: any[];
@@ -131,7 +132,7 @@ export function MateriasContent({ initialMaterias }: MateriasContentProps) {
                         <div className="flex items-center gap-4">
                             <div className="hidden md:flex flex-col items-end mr-8">
                                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Último ajuste</p>
-                                <p className="text-xs font-bold font-mono">{new Date().toISOString().split('T')[0]}</p>
+                                <p className="text-xs font-bold font-mono">{getVenezuelaDate()}</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button

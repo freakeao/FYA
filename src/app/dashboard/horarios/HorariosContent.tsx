@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { DeleteConfirmModal } from "@/components/common/DeleteConfirmModal";
 import { HorarioModal } from "./HorarioModal";
 import { BulkHorarioUploadModal } from "./BulkHorarioUploadModal";
+import { exportToExcel } from "@/lib/excel";
 
 interface HorariosContentProps {
     initialHorarios: any[];
@@ -53,6 +54,19 @@ export function HorariosContent({ initialHorarios, secciones, materias, docentes
         }
         setIsDeleteModalOpen(false);
         setIdToDelete(null);
+    };
+
+    const handleExportExcel = () => {
+        const dataToExport = filteredHorarios.map(h => ({
+            Bloque: `${formatTime12h(h.horaInicio)} - ${formatTime12h(h.horaFin)}`,
+            Materia: h.materia?.nombre || "Actividad / Otro",
+            Seccion: h.seccion?.nombre || "N/A",
+            Grado: h.seccion?.grado || "N/A",
+            Docente: h.docente?.nombre || "Sin Asignar",
+            Dia: currentDay
+        }));
+
+        exportToExcel(dataToExport, `Horarios_${currentDay}`, `Horarios ${currentDay}`);
     };
 
     const filteredHorarios = initialHorarios.filter(h =>
@@ -108,11 +122,19 @@ export function HorariosContent({ initialHorarios, secciones, materias, docentes
                 {/* Actions */}
                 <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto px-2 pb-2 xl:p-0">
                     <button
+                        onClick={handleExportExcel}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all group"
+                        title="Exportar a Excel"
+                    >
+                        <FileSpreadsheet className="w-4 h-4 group-hover:scale-110 transition-transform text-emerald-600" />
+                        <span className="hidden sm:inline">Exportar</span>
+                    </button>
+                    <button
                         onClick={() => setIsBulkModalOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10 transition-all ml-auto xl:ml-0 group"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10 transition-all group"
                         title="Importar Excel"
                     >
-                        <FileSpreadsheet className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
                         <span className="hidden sm:inline">Importar</span>
                     </button>
                     <button

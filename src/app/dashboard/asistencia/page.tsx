@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { getCurrentClass, getEstudiantesBySeccion, registrarAsistencia, getClassesByDate, getUserSession, getAsistenciaByClaseYFecha } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { cn, getVenezuelaToday, formatTime12h } from "@/lib/utils";
+import { dateToYYYYMMDD } from "@/lib/dateUtils";
 
 interface ClaseActual {
     id: string;
@@ -91,8 +92,7 @@ export default function AsistenciaPage() {
             // For now, let's auto-select only if it's the initial load.
             // RESTRICTION: Only auto-open for DOCENTE role. Admins/Coordinators see the list.
             if (!claseActual) {
-                const now = new Date();
-                const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+                const todayStr = getVenezuelaToday();
 
                 if (selectedDate === todayStr && !silent) {
                     // Use unique ID to prevent duplication
@@ -125,13 +125,13 @@ export default function AsistenciaPage() {
     const handlePrevDay = () => {
         const d = new Date(date + 'T12:00:00');
         d.setDate(d.getDate() - 1);
-        handleDateChange(d.toISOString().split('T')[0]);
+        handleDateChange(dateToYYYYMMDD(d));
     };
 
     const handleNextDay = () => {
         const d = new Date(date + 'T12:00:00');
         d.setDate(d.getDate() + 1);
-        handleDateChange(d.toISOString().split('T')[0]);
+        handleDateChange(dateToYYYYMMDD(d));
     };
 
     const handleClassSelected = (clase: any) => {

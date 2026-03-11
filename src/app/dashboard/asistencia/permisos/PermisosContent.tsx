@@ -7,6 +7,7 @@ import { createPermiso, deletePermiso } from "@/lib/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { getVenezuelaDate, formatToVenezuelaDate } from "@/lib/dateUtils";
 
 const TIPO_LABELS: Record<string, { label: string; color: string }> = {
     REPOSO_MEDICO: { label: "Reposo Médico", color: "text-blue-600 bg-blue-500/10 border-blue-500/20" },
@@ -90,14 +91,14 @@ export function PermisosContent({ permisosIniciales, docentes }: PermisosContent
         requestDelete(id);
     };
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getVenezuelaDate();
     const activePermisos = permisos.filter(p => p.fechaFin >= today);
     const pastPermisos = permisos.filter(p => p.fechaFin < today);
 
     const renderPermiso = (permiso: any, isPast: boolean) => {
         const tipoInfo = TIPO_LABELS[permiso.tipo] || TIPO_LABELS.OTRO;
-        const startStr = new Date(permiso.fechaInicio + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
-        const endStr = new Date(permiso.fechaFin + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+        const startStr = formatToVenezuelaDate(permiso.fechaInicio, { day: "2-digit", month: "short", year: "numeric" });
+        const endStr = formatToVenezuelaDate(permiso.fechaFin, { day: "2-digit", month: "short", year: "numeric" });
         const diffDays = Math.round((new Date(permiso.fechaFin).getTime() - new Date(permiso.fechaInicio).getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
         return (

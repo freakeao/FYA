@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getMisInasistencias } from "@/lib/actions";
 import { UserX, Calendar, MessageSquare, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatToVenezuelaDate } from "@/lib/dateUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export default async function MisInasistenciasPage() {
                                     <div className="flex items-center gap-2 text-destructive">
                                         <Calendar className="w-4 h-4" />
                                         <span className="text-xs font-black uppercase tracking-widest">
-                                            {new Date(ina.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            {formatToVenezuelaDate(ina.fecha, { day: 'numeric', month: 'long', year: 'numeric' })}
                                         </span>
                                     </div>
                                     <div className="px-2 py-1 bg-destructive/10 text-destructive rounded-lg text-[8px] font-black uppercase">Ausente</div>

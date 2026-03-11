@@ -8,7 +8,7 @@ import { login, logout, getSession } from "./auth";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { getVenezuelaDate, getVenezuelaDayOfWeek } from "./dateUtils";
+import { getVenezuelaDate, getVenezuelaDayOfWeek, getVenezuelaNow, dateToYYYYMMDD } from "./dateUtils";
 const diaSemanaMap: Record<number, string> = {
     0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
 };
@@ -245,6 +245,23 @@ export async function deleteHorario(formData: FormData) {
         return { success: true, message: "Horario eliminado" };
     } catch (error) {
         return { success: false, error: "Error al eliminar horario" };
+    }
+}
+
+export async function fixHorarioAmPm() {
+    try {
+        await db.update(horarios)
+            .set({ horaInicio: "13:00:00" })
+            .where(eq(horarios.horaInicio, "01:00:00"));
+
+        await db.update(horarios)
+            .set({ horaFin: "13:00:00" })
+            .where(eq(horarios.horaFin, "01:00:00"));
+
+        revalidatePath("/dashboard/horarios");
+        return { success: true, message: "Horarios actualizados de 1 AM a 1 PM correctamente" };
+    } catch (error) {
+        return { success: false, error: "Error al actualizar los horarios" };
     }
 }
 
@@ -928,12 +945,7 @@ export async function getHorariosDelDia(docenteId: string, fecha: string) {
     }
 
     const dateObj = new Date(fecha + 'T12:00:00');
-    const diaSemanaNum = dateObj.getDay();
-    const diaSemanaMapLocal: Record<number, string> = {
-        0: "DOMINGO", 1: "LUNES", 2: "MARTES",
-        3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
-    };
-    const diaSemana = diaSemanaMapLocal[diaSemanaNum];
+    const diaSemana = getVenezuelaDayOfWeek(dateObj);
 
     try {
         return await db
@@ -1205,11 +1217,8 @@ export async function getDashboardData() {
     const isAdministrativeCoord = userDept === "ADMINISTRACION";
 
     // Calcular día de la semana actual
-    const now = new Date();
-    const options = { timeZone: "America/Caracas" };
-    const venezuelaDateStr = now.toLocaleString("en-US", options);
-    const venezuelaDate = new Date(venezuelaDateStr);
-    const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
+    const vNow = getVenezuelaNow();
+    const hoyDia = diaSemanaMap[vNow.getDay()];
 
     try {
         // --- ADMINISTRATIVE COORDINATION VIEW ---
@@ -1574,13 +1583,10 @@ export async function getCurrentClass() {
     const session = await getSession();
     if (!session || !session.user) return null;
 
-    const now = new Date();
-    const options = { timeZone: "America/Caracas" };
-    const venezuelaDateStr = now.toLocaleString("en-US", options);
-    const venezuelaDate = new Date(venezuelaDateStr);
-    const hoyDia = diaSemanaMap[venezuelaDate.getDay()];
-    const hours = venezuelaDate.getHours().toString().padStart(2, '0');
-    const minutes = venezuelaDate.getMinutes().toString().padStart(2, '0');
+    const vNow = getVenezuelaNow();
+    const hoyDia = getVenezuelaDayOfWeek(vNow);
+    const hours = vNow.getHours().toString().padStart(2, '0');
+    const minutes = vNow.getMinutes().toString().padStart(2, '0');
     const currentTime = `${hours}:${minutes}`;
 
     try {
@@ -1720,7 +1726,7 @@ export async function getClassesByDate(dateStr: string) {
 
     // Parse the input date (expected format YYYY-MM-DD)
     const dateObj = new Date(dateStr + 'T12:00:00');
-    const hoyDia = diaSemanaMap[dateObj.getDay()];
+    const hoyDia = getVenezuelaDayOfWeek(dateObj);
 
     try {
         const isStaff = session.user.rol === "ADMINISTRADOR" || session.user.rol === "COORDINADOR";
@@ -1767,13 +1773,13 @@ export async function getPendingClasses(days: number = 7) {
     if (!session || (session.user.rol !== "ADMINISTRADOR" && session.user.rol !== "COORDINADOR")) return [];
 
     const result = [];
-    const today = new Date();
+    const today = getVenezuelaNow();
 
     // Loop back 'days' days
     for (let i = 0; i < days; i++) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = dateToYYYYMMDD(d);
         const dayOfWeek = diaSemanaMap[d.getDay()];
 
         // Skip calling if dayOfWeek is undefined (e.g. if map is incomplete, though it shouldn't be)
