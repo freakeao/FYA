@@ -9,6 +9,8 @@ import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getVenezuelaDate, getVenezuelaDayOfWeek, getVenezuelaNow, dateToYYYYMMDD } from "./dateUtils";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
+
 const diaSemanaMap: Record<number, string> = {
     0: "DOMINGO", 1: "LUNES", 2: "MARTES", 3: "MIERCOLES", 4: "JUEVES", 5: "VIERNES", 6: "SABADO"
 };
@@ -1525,7 +1527,8 @@ export async function getDashboardData() {
                 matricula: {
                     total: totalEstudiantesCount,
                     hombres: totalVarones,
-                    mujeres: totalHembras
+                    mujeres: totalHembras,
+                    label: "Matrícula Estudiantil"
                 },
                 asistenciaHoy: {
                     presentes: presentesTotal,
@@ -1541,7 +1544,8 @@ export async function getDashboardData() {
                     porcentaje: asistenciaPorcentaje,
                     totalConClasesHoy: totalEstudiantesConClasesHoy,
                     conClasesHoyHombres: estudiantesConClasesHoyVarones,
-                    conClasesHoyMujeres: estudiantesConClasesHoyHembras
+                    conClasesHoyMujeres: estudiantesConClasesHoyHembras,
+                    label: "Asistencia de Hoy"
                 },
                 reporteDocentes: {
                     totalDocentes: totalDocentesConClasesHoy,
@@ -1560,21 +1564,24 @@ export async function getDashboardData() {
             listaDocentesPendientes: userRole === "DOCENTE" ? [] : listaDocentesPendientes
         };
     } catch (error) {
+        if (isRedirectError(error)) throw error;
         console.error("Dashboard data error:", error);
         return {
             viewType: "ERROR",
             stats: {
-                matricula: { total: 0, hombres: 0, mujeres: 0 },
+                matricula: { total: 0, hombres: 0, mujeres: 0, label: "Matrícula" },
                 asistenciaHoy: {
                     presentes: 0, presentesHombres: 0, presentesMujeres: 0,
                     ausentes: 0, ausentesHombres: 0, ausentesMujeres: 0,
-                    porcentaje: "0%"
+                    porcentaje: "0%", label: "Asistencia"
                 },
-                reporteDocentes: { totalDocentes: 0, docentesReportaron: 0, docentesSinReporte: 0, porcentajeReporte: "0%" },
+                reporteDocentes: { totalDocentes: 0, docentesReportaron: 0, docentesSinReporte: 0, porcentajeReporte: "0%", estudiantesSinReporte: 0 },
                 inasistenciasPersonal: 0
             },
             docentesAusentes: [],
-            misClases: [] // Legacy compat
+            clasesHoy: [],
+            listaAusentesAlumnos: [],
+            listaDocentesPendientes: []
         };
     }
 }
@@ -1587,7 +1594,8 @@ export async function getCurrentClass() {
     const hoyDia = getVenezuelaDayOfWeek(vNow);
     const hours = vNow.getHours().toString().padStart(2, '0');
     const minutes = vNow.getMinutes().toString().padStart(2, '0');
-    const currentTime = `${hours}:${minutes}`;
+    const seconds = vNow.getSeconds().toString().padStart(2, '0');
+    const currentTime = `${hours}:${minutes}:${seconds}`;
 
     try {
         const isStaff = session.user.rol === "ADMINISTRADOR" || session.user.rol === "COORDINADOR";
@@ -1628,6 +1636,7 @@ export async function getCurrentClass() {
 
         return null;
     } catch (error) {
+        if (isRedirectError(error)) throw error;
         console.error("Error getting current class:", error);
         return null;
     }

@@ -2,34 +2,48 @@
  * Obtiene el objeto Date ajustado a la zona horaria de Venezuela (UTC-4)
  */
 export function getVenezuelaNow(): Date {
-    return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Caracas' }));
+    const now = new Date();
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const vzlaOffset = -4 * 60 * 60 * 1000;
+    return new Date(utcTime + vzlaOffset);
 }
 
 /**
  * Obtiene la fecha actual en formato YYYY-MM-DD para Venezuela
  */
-export function getVenezuelaDate(date: Date = new Date()): string {
-    const venezuelaDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Caracas' }));
-    const year = venezuelaDate.getFullYear();
-    const month = String(venezuelaDate.getMonth() + 1).padStart(2, '0');
-    const day = String(venezuelaDate.getDate()).padStart(2, '0');
+export function getVenezuelaDate(date?: Date): string {
+    const vzlaDate = date ? (() => {
+        const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+        const vzlaOffset = -4 * 60 * 60 * 1000;
+        return new Date(utcTime + vzlaOffset);
+    })() : getVenezuelaNow();
+
+    const year = vzlaDate.getFullYear();
+    const month = String(vzlaDate.getMonth() + 1).padStart(2, '0');
+    const day = String(vzlaDate.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
 
 /**
  * Obtiene el día de la semana actual en español para Venezuela
  */
-export function getVenezuelaDayOfWeek(date: Date = new Date()): string {
-    const venezuelaDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Caracas' }));
+export function getVenezuelaDayOfWeek(date?: Date): string {
+    const vzlaDate = date ? (() => {
+        const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+        const vzlaOffset = -4 * 60 * 60 * 1000;
+        return new Date(utcTime + vzlaOffset);
+    })() : getVenezuelaNow();
+
     const days = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"];
-    return days[venezuelaDate.getDay()];
+    return days[vzlaDate.getDay()];
 }
 
 /**
  * Formatea una fecha YYYY-MM-DD string a algo legible en Venezuela
  */
 export function formatToVenezuelaDate(dateStr: string, options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'long', year: 'numeric' }): string {
-    const date = new Date(dateStr + 'T12:00:00'); // T12 para evitar problemas de zona horaria al parsear
+    if (!dateStr) return "";
+    const date = new Date(dateStr + 'T12:00:00');
     return date.toLocaleDateString('es-ES', options);
 }
 
@@ -42,4 +56,3 @@ export function dateToYYYYMMDD(date: Date): string {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
-
